@@ -269,7 +269,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 			/* Samba) are not particularly accurate and their timestamps can be a second out. This is an */
 			/* unfortunately empirical hack but it's required for backing up from AmigaOS SFS => ext2 */
 
-			ModifiedOk = (a_roEntry.iModified == DestEntry->iModified);
+			ModifiedOk = (a_roEntry.iModified == DestEntry->iModified) ? ETrue : EFalse;
 
 			if (!(ModifiedOk))
 			{
