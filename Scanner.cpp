@@ -472,8 +472,6 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 	const TEntry *Entry;
 	TEntryArray *EntryArray;
 
-return(KErrNotFound);
-
 	if ((RetVal = Dir.Open(a_pccPath)) == KErrNone)
 	{
 		if ((RetVal = Dir.Read(EntryArray)) == KErrNone)
