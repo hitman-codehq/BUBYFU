@@ -27,7 +27,7 @@ static const struct Resident g_oROMTag __attribute__((used)) =
 /* Template for use in obtaining command line parameters.  Remember to change the indexes */
 /* in Scanner.h if the ordering or number of these change */
 
-static const char g_accTemplate[] = "SOURCE/A,DEST/A,ALTDEST/S,COPY/S,DELETE/S,DELETEDIRS/S,NOCASE/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S";
+static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILELIST/A,ALTDEST/S,COPY/S,DELETE/S,DELETEDIRS/S,NOCASE/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S";
 
 volatile bool g_bBreak;		/* Set to true if when ctrl-c is hit by the user */
 RArgs g_oArgs;				/* Contains the parsed command line arguments */
@@ -58,23 +58,33 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 	{
 		if (g_oArgs.Valid() >= 2)
 		{
-			/* RScanner::Scan() is able to modify the parameters passed in so make a copy of the */
-			/* source and destination paths before proceeding */
-
-			Source = Scanner.QualifyFileName("", g_oArgs[ARGS_SOURCE]);
-			Dest = Scanner.QualifyFileName("", g_oArgs[ARGS_DEST]);
-
-			if ((Source) && (Dest))
+			// TODO: CAW
+			if (Scanner.Open() == KErrNone)
 			{
-				Result = Scanner.Scan(Source, Dest);
+				/* RScanner::Scan() is able to modify the parameters passed in so make a copy of the */
+				/* source and destination paths before proceeding */
+
+				Source = Scanner.QualifyFileName("", g_oArgs[ARGS_SOURCE]);
+				Dest = Scanner.QualifyFileName("", g_oArgs[ARGS_DEST]);
+
+				if ((Source) && (Dest))
+				{
+					Result = Scanner.Scan(Source, Dest);
+				}
+				else
+				{
+					Utils::Error("Out of memory");
+				}
+
+				delete Dest;
+				delete Source;
+
+				Scanner.Close();
 			}
 			else
 			{
-				Utils::Error("Out of memory");
+				Utils::Error("Unable to open scanner");
 			}
-
-			delete Dest;
-			delete Source;
 		}
 		else
 		{

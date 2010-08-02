@@ -4,6 +4,7 @@
 #include <BaUtils.h>
 #include <Dir.h>
 #include <File.h>
+#include <StdTextFile.h>
 #include <stdio.h>
 #include <string.h>
 #include "Scanner.h"
@@ -20,100 +21,267 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 
 #define BUFFER_SIZE (1024 * 1024)
 
-/* Written: Friday 02-Jan-2009 8:38 pm */
+/* Written: Wednesday 21-Jul-2010 8:38 am */
 
-int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry)
+int RScanner::Open()
 {
+	char *Line, *Path;
+	const char *FileListName, *FileName;
 	int RetVal;
-	unsigned char *Buffer;
-	RFile SourceFile, DestFile;
+	TExclusion *Exclusion;
 
-	printf("Copying file \"%s\" to \"%s\"\n", a_pccSource, a_pccDest);
+	/* If the name of a file to use as the filelist has been passed in then open and parse it */
 
-	if ((RetVal = SourceFile.Open(a_pccSource, EFileRead)) == KErrNone)
+	FileListName = g_oArgs[ARGS_FILELIST];
+
+	if (FileListName)
 	{
-		/* RFile::Create() will fail if a destination file already exists so delete it before trying */
-		/* to create a new one.  RScanner::DeleteFile() will also remove any read only protection bit */
-		/* that is set before trying to delete the file */
+		RTextFile TextFile;
 
-		if ((RetVal = DeleteFile(a_pccDest)) == KErrNotFound)
-		{
-			RetVal = KErrNone;
-		}
+		/* Read the filelist into memory */
 
-		if (RetVal == KErrNone)
+		if ((RetVal = TextFile.Open(FileListName)) == KErrNone)
 		{
-			if ((RetVal = DestFile.Create(a_pccDest, EFileWrite)) == KErrNone)
+			/* Scan through and extract the lines from the filelist and build the exclusion lists */
+
+			while ((Line = TextFile.GetLine()) != NULL)
 			{
-				if ((Buffer = new unsigned char[BUFFER_SIZE]) != NULL)
+				/* Remove white space from the start and end of the string */
+
+				Utils::TrimString(Line);
+
+				/* Only process the line if it is an exception */
+
+				if (*Line == '-')
 				{
-					do
+					/* Skip the '-' and remove and further white space after it */
+
+					++Line;
+					Utils::TrimString(Line);
+
+					/* Allocate a buffer large enough to hold the exclusion string and a list node */
+					/* to hold it */
+
+					if ((Path = new char[strlen(Line) + 1]) != NULL)
 					{
-						if ((RetVal = SourceFile.Read(Buffer, BUFFER_SIZE)) > 0)
+						if ((Exclusion = new TExclusion(Path)) != NULL)
 						{
-							if ((RetVal = DestFile.Write(Buffer, RetVal)) < 0)
+							/* See if the exclusion is a filename wildcard and if so add it to the file exclusion wildcard list */
+
+							FileName = Utils::FilePart(Line);
+
+							if (*FileName != '\0')
 							{
-								Utils::Error("Unable to write to file \"%s\" (Error %d)", a_pccDest, RetVal);
+								strcpy(Path, FileName);
+								m_oFiles.AddTail(Exclusion);
+
+								printf("Found file \"%s\"\n", Exclusion->m_pccName);
+							}
+
+							/* Otherwise add it to the directory list */
+
+							else
+							{
+								/* First, remove the trailing '/' that is appended to the directory name to be excluded */
+
+								Line[strlen(Line) - 1] = '\0';
+
+								/* And add it to the directory list */
+
+								strcpy(Path, Line);
+								m_oDirectories.AddTail(Exclusion);
+
+								printf("Found directory \"%s\"\n", Exclusion->m_pccName);
 							}
 						}
 						else
 						{
-							if (RetVal < 0)
-							{
-								Utils::Error("Unable to read from file \"%s\" (Error %d)", a_pccSource, RetVal);
-							}
+							RetVal = KErrNoMemory;
+							delete [] Path;
+
+							Utils::Error("*** Out of memory");
 						}
 					}
-					while (RetVal > 0);
-
-					delete [] Buffer;
 				}
 				else
 				{
-					RetVal = KErrNoMemory;
-
-					Utils::Error("Out of memory");
+					Utils::Error("*** Skipping %s", Line);
 				}
+			}
 
-				DestFile.Close();
+			TextFile.Close();
+		}
+		else
+		{
+			Utils::Error("*** Unable to open file list \"%s\"", FileListName);
+		}
+	}
+
+	/* Otherwise don't do anything and just return success */
+
+	else
+	{
+		RetVal = KErrNone;
+	}
+
+	return(RetVal);
+}
+
+/* Written: Wednesday 21-Jul-2010 8:40 am */
+
+void RScanner::Close()
+{
+	TExclusion *Exclusion;
+
+	/* Iterate through the items in the directory exclusion list and delete them */
+
+	while ((Exclusion = m_oDirectories.RemHead()) != NULL)
+	{
+		delete Exclusion;
+	}
+
+	/* Iterate through the items in the file exclusion wildcard list and delete them */
+
+	while ((Exclusion = m_oFiles.RemHead()) != NULL)
+	{
+		delete Exclusion;
+	}
+}
+
+/* Written: Friday 02-Jan-2009 8:38 pm */
+
+int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry)
+{
+	bool CopyFile;
+	const char *Extension, *SourceExtension;
+	int RetVal;
+	unsigned char *Buffer;
+	RFile SourceFile, DestFile;
+	TExclusion *Exclusion;
+
+	/* By default, copy the file */
+
+	CopyFile = true;
+	RetVal = KErrNone;
+
+	/* See if the filename contains an extension and if so, iterate through the list of file exclusion */
+	/* wildcards and see if there is a match */
+
+	if ((SourceExtension = Utils::Extension(a_pccSource)) != NULL)
+	{
+		if ((Exclusion = m_oFiles.GetHead()) != NULL)
+		{
+			do
+			{
+				/* Extract the extension of the current exclusion wildcard */
+
+				if ((Extension = Utils::Extension(Exclusion->m_pccName)) != NULL)
+				{
+					/* If this matches the current file then bail out and don't copy the file */
+
+					if (strcmp(Extension, SourceExtension) == 0)
+					{
+						CopyFile = false;
+
+						break;
+					}
+				}
+			}
+			while ((Exclusion = m_oFiles.GetSucc(Exclusion)) != NULL);
+		}
+	}
+
+	/* Copy the file if required */
+
+	if (CopyFile)
+	{
+		printf("Copying file \"%s\" to \"%s\"\n", a_pccSource, a_pccDest);
+
+		if ((RetVal = SourceFile.Open(a_pccSource, EFileRead)) == KErrNone)
+		{
+			/* RFile::Create() will fail if a destination file already exists so delete it before trying */
+			/* to create a new one.  RScanner::DeleteFile() will also remove any read only protection bit */
+			/* that is set before trying to delete the file */
+
+			if ((RetVal = DeleteFile(a_pccDest)) == KErrNotFound)
+			{
+				RetVal = KErrNone;
+			}
+
+			if (RetVal == KErrNone)
+			{
+				if ((RetVal = DestFile.Create(a_pccDest, EFileWrite)) == KErrNone)
+				{
+					if ((Buffer = new unsigned char[BUFFER_SIZE]) != NULL)
+					{
+						do
+						{
+							if ((RetVal = SourceFile.Read(Buffer, BUFFER_SIZE)) > 0)
+							{
+								if ((RetVal = DestFile.Write(Buffer, RetVal)) < 0)
+								{
+									Utils::Error("Unable to write to file \"%s\" (Error %d)", a_pccDest, RetVal);
+								}
+							}
+							else
+							{
+								if (RetVal < 0)
+								{
+									Utils::Error("Unable to read from file \"%s\" (Error %d)", a_pccSource, RetVal);
+								}
+							}
+						}
+						while (RetVal > 0);
+
+						delete [] Buffer;
+					}
+					else
+					{
+						RetVal = KErrNoMemory;
+
+						Utils::Error("Out of memory");
+					}
+
+					DestFile.Close();
+				}
+				else
+				{
+					Utils::Error("Unable to open dest file \"%s\" (Error %d)", a_pccDest, RetVal);
+				}
 			}
 			else
 			{
-				Utils::Error("Unable to open dest file \"%s\" (Error %d)", a_pccDest, RetVal);
+				Utils::Error("Unable to delete dest file \"%s\" (Error %d)", a_pccDest, RetVal);
+			}
+
+			SourceFile.Close();
+
+			/* If successful, set the date and time and protection bits in the destination file to match those */
+			/* in the source file */
+
+			if (RetVal == KErrNone)
+			{
+				if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) == KErrNone)
+				{
+					if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
+					{
+						Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
+					}
+				}
+				else
+				{
+					Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
+				}
 			}
 		}
 		else
 		{
-			Utils::Error("Unable to delete dest file \"%s\" (Error %d)", a_pccDest, RetVal);
-		}
+			Utils::Error("Unable to open source file \"%s\" (Error %d)", a_pccSource, RetVal);
 
-		SourceFile.Close();
-
-		/* If successful, set the date and time and protection bits in the destination file to match those */
-		/* in the source file */
-
-		if (RetVal == KErrNone)
-		{
-			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) == KErrNone)
+			if (g_oArgs[ARGS_NOERRORS])
 			{
-				if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
-				{
-					Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
-				}
+				RetVal = KErrNone;
 			}
-			else
-			{
-				Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
-			}
-		}
-	}
-	else
-	{
-		Utils::Error("Unable to open source file \"%s\" (Error %d)", a_pccSource, RetVal);
-
-		if (g_oArgs[ARGS_NOERRORS])
-		{
-			RetVal = KErrNone;
 		}
 	}
 
@@ -122,6 +290,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 /* Written: Saturday 03-Jan-2009 8:42 am */
 
+// TODO: CAW - const char?
 int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
 {
 	int RetVal;
@@ -619,140 +788,94 @@ char *RScanner::QualifyFileName(const char *a_pccDirectoryName, const char *a_pc
 
 int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 {
-	bool CheckFile;
-	char *NextSource, *NextDest;
-	int RetVal;
+	bool CheckFile, CopyDir;
+	char *Found, *NextSource, *NextDest;
+	int Length, RetVal;
 	RDir SourceDir, DestDir;
 	const TEntry *Entry;
 	TEntryArray *SourceEntries, *DestEntries;
+	TExclusion *Exclusion;
 
-	if ((RetVal = SourceDir.Open(a_pcSource)) == KErrNone)
+	/* By default, copy the directory */
+
+	CopyDir = true;
+	RetVal = KErrNone;
+
+	/* Iterate through the list of directory exclusions and see if there is a match for the source directory */
+
+	// TODO: CAW - Why is there a TEntry.GetHead() when this works just fine here?
+	if ((Exclusion = m_oDirectories.GetHead()) != NULL)
 	{
-		if ((RetVal = SourceDir.Read(SourceEntries)) == KErrNone)
+		do
 		{
-			if ((RetVal = DestDir.Open(a_pcDest)) == KErrNone)
+			/* If the directory exclusion is a substring of the current source directory name then */
+			/* bail out and don't copy the directory */
+
+			if ((Found = strstr(a_pcSource, Exclusion->m_pccName)) != NULL)
 			{
-				if ((RetVal = DestDir.Read(DestEntries)) == KErrNone)
+				/* Check to ensure that the directory name found is not a substring of a larger directory name. */
+				/* For instance, we want "armv5" to match "armv5" but not "armv5smp" */
+
+				Length = strlen(Exclusion->m_pccName);
+
+				if ((Found[Length] == '\0') || (Found[Length] == '/'))
 				{
-					Entry = SourceEntries->GetHead();
+					printf("Excluding %s\n", a_pcSource);
 
-					while (Entry)
+					CopyDir = false;
+
+					break;
+				}
+			}
+		}
+		while ((Exclusion = m_oDirectories.GetSucc(Exclusion)) != NULL);
+	}
+
+	/* Copy the directory if required */
+
+	if (CopyDir)
+	{
+		if ((RetVal = SourceDir.Open(a_pcSource)) == KErrNone)
+		{
+			if ((RetVal = SourceDir.Read(SourceEntries)) == KErrNone)
+			{
+				if ((RetVal = DestDir.Open(a_pcDest)) == KErrNone)
+				{
+					if ((RetVal = DestDir.Read(DestEntries)) == KErrNone)
 					{
-						CheckFile = false;
+						Entry = SourceEntries->GetHead();
 
-						if (!(Entry->IsLink()))
+						while (Entry)
 						{
-							if (Entry->IsHidden())
-							{
-								CheckFile = (!(g_oArgs[ARGS_NOHIDDEN]));
-							}
-							else
-							{
-								CheckFile = true;
-							}
-						}
+							CheckFile = false;
 
-						if (CheckFile)
-						{
-							NextSource = QualifyFileName(a_pcSource, Entry->iName);
-							NextDest = QualifyFileName(a_pcDest, Entry->iName);
-
-							if ((NextSource) && (NextDest))
+							if (!(Entry->IsLink()))
 							{
-								if (Entry->IsDir())
+								if (Entry->IsHidden())
 								{
-									RetVal = CompareDirectories(NextSource, NextDest, *Entry, *DestEntries);
+									CheckFile = (!(g_oArgs[ARGS_NOHIDDEN]));
 								}
 								else
 								{
-									RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
+									CheckFile = true;
 								}
 							}
-							else
+
+							if (CheckFile)
 							{
-								RetVal = KErrNoMemory;
+								NextSource = QualifyFileName(a_pcSource, Entry->iName);
+								NextDest = QualifyFileName(a_pcDest, Entry->iName);
 
-								Utils::Error("Out of memory");
-							}
-
-							delete [] NextDest;
-							delete [] NextSource;
-
-							if (g_bBreak)
-							{
-								/* Because Scan() is recursive, this error can be printed multiple times if we are in a subdirectory */
-								/* (once for each recurse of Scan()) so use a flag to ensure that it is only printed once */
-
-								if (!(m_bBreakPrinted))
-								{
-									m_bBreakPrinted = true;
-
-									printf("BUBYFU: ***Break\n");
-								}
-
-								RetVal = KErrCompletion;
-							}
-
-							if (RetVal != KErrNone)
-							{
-								break;
-							}
-						}
-
-						Entry = SourceEntries->GetSucc(Entry);
-					}
-
-					if (RetVal == KErrNone)
-					{
-						if (DestEntries->Count() > 0)
-						{
-							Entry = DestEntries->GetHead();
-
-							while (Entry)
-							{
-								if ((NextDest = QualifyFileName(a_pcDest, Entry->iName)) != NULL)
+								if ((NextSource) && (NextDest))
 								{
 									if (Entry->IsDir())
 									{
-										if (g_oArgs[ARGS_DELETEDIRS])
-										{
-											printf("Deleting directory \"%s\"\n", NextDest);
-
-											if ((RetVal = DeleteDir(NextDest)) != KErrNone)
-											{
-												break;
-											}
-										}
-										else if ((!(g_oArgs[ARGS_NODEST])) && (!(g_oArgs[ARGS_NORECURSE])))
-										{
-											printf("Directory \"%s\" exists only in destination\n", NextDest);
-										}
+										RetVal = CompareDirectories(NextSource, NextDest, *Entry, *DestEntries);
 									}
-									else if (!(Entry->IsLink()))
+									else
 									{
-										if (g_oArgs[ARGS_DELETE])
-										{
-											printf("Deleting file \"%s\"\n", NextDest);
-
-											if ((RetVal = DeleteFile(NextDest)) != KErrNone)
-											{
-												Utils::Error("Unable to delete file \"%s\" (Error %d)", NextDest, RetVal);
-
-												if (!(g_oArgs[ARGS_NOERRORS]))
-												{
-													delete [] NextDest;
-
-													break;
-												}
-											}
-										}
-										else if (!(g_oArgs[ARGS_NODEST]))
-										{
-											printf("File \"%s\" exists only in destination\n", NextDest);
-										}
+										RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
 									}
-
-									delete [] NextDest;
 								}
 								else
 								{
@@ -761,56 +884,143 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 									Utils::Error("Out of memory");
 								}
 
-								Entry = DestEntries->GetSucc(Entry);
+								delete [] NextDest;
+								delete [] NextSource;
+
+								if (g_bBreak)
+								{
+									/* Because Scan() is recursive, this error can be printed multiple times if we are in a subdirectory */
+									/* (once for each recurse of Scan()) so use a flag to ensure that it is only printed once */
+
+									if (!(m_bBreakPrinted))
+									{
+										m_bBreakPrinted = true;
+
+										printf("BUBYFU: ***Break\n");
+									}
+
+									RetVal = KErrCompletion;
+								}
+
+								if (RetVal != KErrNone)
+								{
+									break;
+								}
+							}
+
+							Entry = SourceEntries->GetSucc(Entry);
+						}
+
+						if (RetVal == KErrNone)
+						{
+							if (DestEntries->Count() > 0)
+							{
+								Entry = DestEntries->GetHead();
+
+								while (Entry)
+								{
+									if ((NextDest = QualifyFileName(a_pcDest, Entry->iName)) != NULL)
+									{
+										if (Entry->IsDir())
+										{
+											if (g_oArgs[ARGS_DELETEDIRS])
+											{
+												printf("Deleting directory \"%s\"\n", NextDest);
+
+												if ((RetVal = DeleteDir(NextDest)) != KErrNone)
+												{
+													break;
+												}
+											}
+											else if ((!(g_oArgs[ARGS_NODEST])) && (!(g_oArgs[ARGS_NORECURSE])))
+											{
+												printf("Directory \"%s\" exists only in destination\n", NextDest);
+											}
+										}
+										else if (!(Entry->IsLink()))
+										{
+											if (g_oArgs[ARGS_DELETE])
+											{
+												printf("Deleting file \"%s\"\n", NextDest);
+
+												if ((RetVal = DeleteFile(NextDest)) != KErrNone)
+												{
+													Utils::Error("Unable to delete file \"%s\" (Error %d)", NextDest, RetVal);
+
+													if (!(g_oArgs[ARGS_NOERRORS]))
+													{
+														delete [] NextDest;
+
+														break;
+													}
+												}
+											}
+											else if (!(g_oArgs[ARGS_NODEST]))
+											{
+												printf("File \"%s\" exists only in destination\n", NextDest);
+											}
+										}
+
+										delete [] NextDest;
+									}
+									else
+									{
+										RetVal = KErrNoMemory;
+
+										Utils::Error("Out of memory");
+									}
+
+									Entry = DestEntries->GetSucc(Entry);
+								}
 							}
 						}
 					}
-				}
-				else
-				{
-					Utils::Error("Unable to scan dest directory \"%s\" (Error %d)", a_pcDest, RetVal);
-				}
-
-				DestDir.Close();
-			}
-			else
-			{
-				if ((RetVal == KErrNotFound) && (g_oArgs[ARGS_COPY]))
-				{
-					RetVal = CopyDirectory(a_pcSource, a_pcDest);
-				}
-				else
-				{
-					if (RetVal == KErrNotFound)
+					else
 					{
-						printf("Directory \"%s\" does not exist\n", a_pcDest);
+						Utils::Error("Unable to scan dest directory \"%s\" (Error %d)", a_pcDest, RetVal);
+					}
+
+					DestDir.Close();
+				}
+				else
+				{
+					if ((RetVal == KErrNotFound) && (g_oArgs[ARGS_COPY]))
+					{
+						RetVal = CopyDirectory(a_pcSource, a_pcDest);
 					}
 					else
 					{
-						Utils::Error("Unable to open dest directory \"%s\" (Error %d)", a_pcDest, RetVal);
-					}
+						if (RetVal == KErrNotFound)
+						{
+							printf("Directory \"%s\" does not exist\n", a_pcDest);
+						}
+						else
+						{
+							Utils::Error("Unable to open dest directory \"%s\" (Error %d)", a_pcDest, RetVal);
+						}
 
-					//if (g_oArgs[ARGS_NOERRORS])
-					{
-						RetVal = KErrNone;
+						//if (g_oArgs[ARGS_NOERRORS])
+						{
+							RetVal = KErrNone;
+						}
 					}
 				}
 			}
+			else
+			{
+				Utils::Error("Unable to scan source directory \"%s\" (Error %d)", a_pcSource, RetVal);
+			}
+
+			SourceDir.Close();
 		}
 		else
 		{
-			Utils::Error("Unable to scan source directory \"%s\" (Error %d)", a_pcSource, RetVal);
-		}
+			Utils::Error("Unable to open source directory \"%s\" (Error %d)", a_pcSource, RetVal);
 
-		SourceDir.Close();
-	}
-	else
-	{
-		Utils::Error("Unable to open source directory \"%s\" (Error %d)", a_pcSource, RetVal);
-
-		if (g_oArgs[ARGS_NOERRORS])
-		{
-			RetVal = KErrNone;
+			if (g_oArgs[ARGS_NOERRORS])
+			{
+				RetVal = KErrNone;
+			}
 		}
 	}
 
