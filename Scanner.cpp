@@ -290,7 +290,6 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 /* Written: Saturday 03-Jan-2009 8:42 am */
 
-// TODO: CAW - const char?
 int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
 {
 	int RetVal;
