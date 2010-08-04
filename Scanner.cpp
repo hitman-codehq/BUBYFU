@@ -25,10 +25,9 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 
 int RScanner::Open()
 {
-	char *Line, *Path;
-	const char *FileListName, *FileName;
+	char *Line;
+	const char *FileListName;
 	int RetVal;
-	TExclusion *Exclusion;
 
 	/* If the name of a file to use as the filelist has been passed in then open and parse it */
 
@@ -57,48 +56,25 @@ int RScanner::Open()
 					++Line;
 					Utils::TrimString(Line);
 
-					/* Allocate a buffer large enough to hold the exclusion string and a list node */
-					/* to hold it */
+					/* Append the exclusion to the exclusion list */
 
-					if ((Path = new char[strlen(Line) + 1]) != NULL)
+					if ((RetVal = AddExclusion(Line)) != KErrNone)
 					{
-						if ((Exclusion = new TExclusion(Path)) != NULL)
-						{
-							/* See if the exclusion is a filename wildcard and if so add it to the file exclusion wildcard list */
+						break;
+					}
+				}
+				else
+				{
+					if (*Line == '+')
+					{
+						++Line;
+						Utils::TrimString(Line);
 
-							FileName = Utils::FilePart(Line);
-
-							if (*FileName != '\0')
-							{
-								strcpy(Path, FileName);
-								m_oFiles.AddTail(Exclusion);
-
-								printf("Found file \"%s\"\n", Exclusion->m_pccName);
-							}
-
-							/* Otherwise add it to the directory list */
-
-							else
-							{
-								/* First, remove the trailing '/' that is appended to the directory name to be excluded */
-
-								Line[strlen(Line) - 1] = '\0';
-
-								/* And add it to the directory list */
-
-								strcpy(Path, Line);
-								m_oDirectories.AddTail(Exclusion);
-
-								printf("Found directory \"%s\"\n", Exclusion->m_pccName);
-							}
-						}
-						else
-						{
-							RetVal = KErrNoMemory;
-							delete [] Path;
-
-							Utils::Error("Out of memory");
-						}
+						printf("Adding inclusion: %s\n", Line);
+					}
+					else if (*Line != '#')
+					{
+						printf("Unknown filelist line: %s\n", Line);
 					}
 				}
 			}
@@ -140,6 +116,71 @@ void RScanner::Close()
 	{
 		delete Exclusion;
 	}
+}
+
+/* Written: Wednesday 04-Aug-2010 10:18 am */
+
+int RScanner::AddExclusion(char *a_pcLine)
+{
+	char *Path;
+	const char *FileName;
+	int RetVal;
+	TExclusion *Exclusion;
+
+	/* Assume failure */
+
+	RetVal = KErrNoMemory;
+
+	/* Allocate a buffer large enough to hold the exclusion string and a list node */
+	/* to hold it */
+
+	if ((Path = new char[strlen(a_pcLine) + 1]) != NULL)
+	{
+		if ((Exclusion = new TExclusion(Path)) != NULL)
+		{
+			RetVal = KErrNone;
+
+			/* See if the exclusion is a filename wildcard and if so add it to the file exclusion wildcard list */
+
+			FileName = Utils::FilePart(a_pcLine);
+
+			if (*FileName != '\0')
+			{
+				strcpy(Path, FileName);
+				m_oFiles.AddTail(Exclusion);
+
+				printf("Found file \"%s\"\n", Exclusion->m_pccName);
+			}
+
+			/* Otherwise add it to the directory list */
+
+			else
+			{
+				/* First, remove the trailing '/' that is appended to the directory name to be excluded */
+
+				a_pcLine[strlen(a_pcLine) - 1] = '\0';
+
+				/* And add it to the directory list */
+
+				strcpy(Path, a_pcLine);
+				m_oDirectories.AddTail(Exclusion);
+
+				printf("Found directory \"%s\"\n", Exclusion->m_pccName);
+			}
+		}
+		else
+		{
+			delete [] Path;
+
+			Utils::Error("Out of memory");
+		}
+	}
+	else
+	{
+		Utils::Error("Out of memory");
+	}
+
+	return(RetVal);
 }
 
 /* Written: Friday 02-Jan-2009 8:38 pm */

@@ -59,6 +59,8 @@ private:
 
 private:
 
+	int AddExclusion(char *a_pcLine);
+
 	int CopyFile(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry);
 
 	int CopyDirectory(char *a_pcSource, char *a_pcDest);
