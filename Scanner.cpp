@@ -802,7 +802,6 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 	/* Iterate through the list of directory exclusions and see if there is a match for the source directory */
 
-	// TODO: CAW - Why is there a TEntry.GetHead() when this works just fine here?
 	if ((Exclusion = m_oDirectories.GetHead()) != NULL)
 	{
 		do
