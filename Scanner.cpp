@@ -32,9 +32,7 @@ int RScanner::Open()
 
 	/* If the name of a file to use as the filelist has been passed in then open and parse it */
 
-	FileListName = g_oArgs[ARGS_FILELIST];
-
-	if (FileListName)
+	if ((FileListName = g_oArgs[ARGS_FILELIST]) != NULL)
 	{
 		RTextFile TextFile;
 
@@ -99,13 +97,9 @@ int RScanner::Open()
 							RetVal = KErrNoMemory;
 							delete [] Path;
 
-							Utils::Error("*** Out of memory");
+							Utils::Error("Out of memory");
 						}
 					}
-				}
-				else
-				{
-					Utils::Error("*** Skipping %s", Line);
 				}
 			}
 
@@ -113,7 +107,7 @@ int RScanner::Open()
 		}
 		else
 		{
-			Utils::Error("*** Unable to open file list \"%s\"", FileListName);
+			Utils::Error("Unable to open file list \"%s\"", FileListName);
 		}
 	}
 

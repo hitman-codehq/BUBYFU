@@ -56,7 +56,9 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 
 	if ((Result = g_oArgs.Open(g_accTemplate, ARGS_NUM_ARGS, a_ppcArgV, a_iArgC)) == KErrNone)
 	{
-		// TODO: CAW
+		/* Open the scanner and allow it to parse the filelist if it exists.  It will display */
+		/* any errors required */
+
 		if (Scanner.Open() == KErrNone)
 		{
 			/* RScanner::Scan() is able to modify the parameters passed in so make a copy of the */
@@ -78,10 +80,6 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 			delete Source;
 
 			Scanner.Close();
-		}
-		else
-		{
-			Utils::Error("Unable to open scanner");
 		}
 
 		g_oArgs.Close();
