@@ -27,7 +27,7 @@ static const struct Resident g_oROMTag __attribute__((used)) =
 /* Template for use in obtaining command line parameters.  Remember to change the indexes */
 /* in Scanner.h if the ordering or number of these change */
 
-static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILELIST/A,ALTDEST/S,COPY/S,DELETE/S,DELETEDIRS/S,NOCASE/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S";
+static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILELIST,ALTDEST/S,COPY/S,DELETE/S,DELETEDIRS/S,NOCASE/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S";
 
 volatile bool g_bBreak;		/* Set to true if when ctrl-c is hit by the user */
 RArgs g_oArgs;				/* Contains the parsed command line arguments */
@@ -56,47 +56,46 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 
 	if ((Result = g_oArgs.Open(g_accTemplate, ARGS_NUM_ARGS, a_ppcArgV, a_iArgC)) == KErrNone)
 	{
-		if (g_oArgs.Valid() >= 2)
+		// TODO: CAW
+		if (Scanner.Open() == KErrNone)
 		{
-			// TODO: CAW
-			if (Scanner.Open() == KErrNone)
+			/* RScanner::Scan() is able to modify the parameters passed in so make a copy of the */
+			/* source and destination paths before proceeding */
+
+			Source = Scanner.QualifyFileName("", g_oArgs[ARGS_SOURCE]);
+			Dest = Scanner.QualifyFileName("", g_oArgs[ARGS_DEST]);
+
+			if ((Source) && (Dest))
 			{
-				/* RScanner::Scan() is able to modify the parameters passed in so make a copy of the */
-				/* source and destination paths before proceeding */
-
-				Source = Scanner.QualifyFileName("", g_oArgs[ARGS_SOURCE]);
-				Dest = Scanner.QualifyFileName("", g_oArgs[ARGS_DEST]);
-
-				if ((Source) && (Dest))
-				{
-					Result = Scanner.Scan(Source, Dest);
-				}
-				else
-				{
-					Utils::Error("Out of memory");
-				}
-
-				delete Dest;
-				delete Source;
-
-				Scanner.Close();
+				Result = Scanner.Scan(Source, Dest);
 			}
 			else
 			{
-				Utils::Error("Unable to open scanner");
+				Utils::Error("Out of memory");
 			}
+
+			delete Dest;
+			delete Source;
+
+			Scanner.Close();
 		}
 		else
 		{
-			Utils::Error("Required argument missing");
+			Utils::Error("Unable to open scanner");
 		}
 
 		g_oArgs.Close();
 	}
 	else
 	{
-		// TODO: CAW - Obtain command line arguments on ? + check for Valid() isn't required on Amiga OS
-		Utils::Error("Unable to read command line arguments");
+		if (Result == KErrNotFound)
+		{
+			Utils::Error("Required argument missing");
+		}
+		else
+		{
+			Utils::Error("Unable to read command line arguments");
+		}
 	}
 
 	return((Result == KErrNone) ? RETURN_OK : RETURN_ERROR);
