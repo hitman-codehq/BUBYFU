@@ -29,6 +29,7 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 
 int RScanner::Open()
 {
+	bool Inclusion;
 	char *Line;
 	const char *FileListName;
 	int RetVal;
@@ -51,10 +52,12 @@ int RScanner::Open()
 
 				Utils::TrimString(Line);
 
-				/* Only process the line if it is an exception */
+				/* Check for a filter */
 
-				if (*Line == '-')
+				if ((*Line == '-') || (*Line == '+'))
 				{
+					Inclusion = (*Line == '+');
+
 					/* Skip the '-' and remove and further white space after it */
 
 					++Line;
@@ -62,27 +65,17 @@ int RScanner::Open()
 
 					/* Append the filter to the filter list */
 
-					if ((RetVal = AddFilter(Line, false)) != KErrNone)
+					if ((RetVal = AddFilter(Line, Inclusion)) != KErrNone)
 					{
 						break;
 					}
 				}
-				else
-				{
-					if (*Line == '+')
-					{
-						++Line;
-						Utils::TrimString(Line);
 
-						if ((RetVal = AddFilter(Line, true)) != KErrNone)
-						{
-							break;
-						}
-					}
-					else if (*Line != '#')
-					{
-						printf("Unknown filelist line: %s\n", Line);
-					}
+				/* Check to see if this is a comment and if not, display an error */
+
+				else if (*Line != '#')
+				{
+					printf("Unknown filelist line: %s\n", Line);
 				}
 			}
 
