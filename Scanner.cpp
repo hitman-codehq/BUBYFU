@@ -16,9 +16,7 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Think about how to handle links
 // TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
 // TODO: CAW - Finish the ALTDEST stuff or get rid of it
-// TODO: CAW - Have a VERBOSE option to display filter affects
-// TODO: CAW - Add proper support for wildcards
-// TODO: CAW - Directories should be able to use wildcards
+// TODO: CAW - Add proper support for wildcards for both directories and files
 
 /* # of bytes to read and write when copying files */
 
@@ -74,7 +72,7 @@ int RScanner::Open()
 
 				else if (*Line != '#')
 				{
-					printf("Unknown filter list line: %s\n", Line);
+					printf("Warning: Unknown filter list entry: %s\n", Line);
 				}
 			}
 
@@ -160,7 +158,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 					{
 						m_poLastFilter->m_oFilters.AddTail(Filter);
 
-						printf("  Added inclusion filter \"%s\" to directory filter \"%s\"\n", Path, m_poLastFilter->m_pccName);
+						if (g_oArgs[ARGS_VERBOSE]) printf("  Added inclusion filter \"%s\" to directory filter \"%s\"\n", Path, m_poLastFilter->m_pccName);
 					}
 					else
 					{
@@ -173,7 +171,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 				{
 					m_oFiles.AddTail(Filter);
 
-					printf("Added file filter \"%s\"\n", Path);
+					if (g_oArgs[ARGS_VERBOSE]) printf("Added file filter \"%s\"\n", Path);
 				}
 			}
 
@@ -196,7 +194,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 
 					m_poLastFilter = Filter;
 
-					printf("Added directory filter \"%s\"\n", a_pcLine);
+					if (g_oArgs[ARGS_VERBOSE]) printf("Added directory filter \"%s\"\n", a_pcLine);
 				}
 				else
 				{
@@ -892,15 +890,16 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 				if ((Found[Length] == '\0') || (Found[Length] == '/'))
 				{
+					// TODO: CAW
 					if (Filter->m_oFilters.GetHead() == NULL)
 					{
-						printf("Excluding %s\n", a_pcSource); // TODO: CAW - VERBOSE only
+						if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
 
 						CopyDir = false;
 					}
 					else
 					{
-						printf("Copying %s with inclusions\n", a_pcSource);
+						if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
 
 						InclusionsOnly = true;
 					}
@@ -972,7 +971,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 														{
 															if (strcmp(Extension, SourceExtension) == 0)
 															{
-																printf("Found %s in %s\n", Filter->m_oFilters.GetHead()->m_pccName, Entry->iName);
+																if (g_oArgs[ARGS_VERBOSE]) printf("Found inclusion %s in %s\n", Filter->m_oFilters.GetHead()->m_pccName, Entry->iName);
 
 																RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
 															}

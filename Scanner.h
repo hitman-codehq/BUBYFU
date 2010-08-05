@@ -18,7 +18,8 @@
 #define ARGS_NOHIDDEN 10
 #define ARGS_NOPROTECT 11
 #define ARGS_NORECURSE 12
-#define ARGS_NUM_ARGS 13
+#define ARGS_VERBOSE 13
+#define ARGS_NUM_ARGS 14
 
 /* Forward declarations */
 
