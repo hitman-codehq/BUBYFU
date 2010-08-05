@@ -27,7 +27,7 @@ static const struct Resident g_oROMTag __attribute__((used)) =
 /* Template for use in obtaining command line parameters.  Remember to change the indexes */
 /* in Scanner.h if the ordering or number of these change */
 
-static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILELIST,ALTDEST/S,COPY/S,DELETE/S,DELETEDIRS/S,NOCASE/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S";
+static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILTERLIST,ALTDEST/S,COPY/S,DELETE/S,DELETEDIRS/S,NOCASE/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S";
 
 volatile bool g_bBreak;		/* Set to true if when ctrl-c is hit by the user */
 RArgs g_oArgs;				/* Contains the parsed command line arguments */
@@ -56,7 +56,7 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 
 	if ((Result = g_oArgs.Open(g_accTemplate, ARGS_NUM_ARGS, a_ppcArgV, a_iArgC)) == KErrNone)
 	{
-		/* Open the scanner and allow it to parse the filelist if it exists.  It will display */
+		/* Open the scanner and allow it to parse the filter list if it exists.  It will display */
 		/* any errors required */
 
 		if (Scanner.Open() == KErrNone)

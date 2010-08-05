@@ -7,7 +7,7 @@
 
 #define ARGS_SOURCE 0
 #define ARGS_DEST 1
-#define ARGS_FILELIST 2
+#define ARGS_FILTERLIST 2
 #define ARGS_ALTDEST 3
 #define ARGS_COPY 4
 #define ARGS_DELETE 5

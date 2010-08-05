@@ -19,7 +19,6 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Have a VERBOSE option to display filter affects
 // TODO: CAW - Add proper support for wildcards
 // TODO: CAW - Directories should be able to use wildcards
-// TODO: CAW - Rename filelist parameter
 
 /* # of bytes to read and write when copying files */
 
@@ -31,20 +30,20 @@ int RScanner::Open()
 {
 	bool Inclusion;
 	char *Line;
-	const char *FileListName;
+	const char *FilterListName;
 	int RetVal;
 
-	/* If the name of a file to use as the filelist has been passed in then open and parse it */
+	/* If the name of a file to use as the filter list has been passed in then open and parse it */
 
-	if ((FileListName = g_oArgs[ARGS_FILELIST]) != NULL)
+	if ((FilterListName = g_oArgs[ARGS_FILTERLIST]) != NULL)
 	{
 		RTextFile TextFile;
 
-		/* Read the filelist into memory */
+		/* Read the filter list into memory */
 
-		if ((RetVal = TextFile.Open(FileListName)) == KErrNone)
+		if ((RetVal = TextFile.Open(FilterListName)) == KErrNone)
 		{
-			/* Scan through and extract the lines from the filelist and build the filter lists */
+			/* Scan through and extract the lines from the filter list and build the filter lists */
 
 			while ((Line = TextFile.GetLine()) != NULL)
 			{
@@ -75,7 +74,7 @@ int RScanner::Open()
 
 				else if (*Line != '#')
 				{
-					printf("Unknown filelist line: %s\n", Line);
+					printf("Unknown filter list line: %s\n", Line);
 				}
 			}
 
@@ -83,7 +82,7 @@ int RScanner::Open()
 		}
 		else
 		{
-			Utils::Error("Unable to open file list \"%s\"", FileListName);
+			Utils::Error("Unable to open filter list \"%s\"", FilterListName);
 		}
 	}
 
@@ -586,7 +585,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 		DestEntry = a_roDestEntries.GetSucc(DestEntry);
 	}
 
-	/* If we have reached the end of the destination file list without finding a match then the file */
+	/* If we have reached the end of the destination filter list without finding a match then the file */
 	/* does not exist, so either copy it or print a message, as appropriate */
 
 	if (!(DestEntry))
