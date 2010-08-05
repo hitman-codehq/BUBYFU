@@ -16,6 +16,10 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Think about how to handle links
 // TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
 // TODO: CAW - Finish the ALTDEST stuff or get rid of it
+// TODO: CAW - Have a VERBOSE option to display filter affects
+// TODO: CAW - Add proper support for wildcards
+// TODO: CAW - Directories should be able to use wildcards
+// TODO: CAW - Rename filelist parameter
 
 /* # of bytes to read and write when copying files */
 
@@ -39,7 +43,7 @@ int RScanner::Open()
 
 		if ((RetVal = TextFile.Open(FileListName)) == KErrNone)
 		{
-			/* Scan through and extract the lines from the filelist and build the exclusion lists */
+			/* Scan through and extract the lines from the filelist and build the filter lists */
 
 			while ((Line = TextFile.GetLine()) != NULL)
 			{
@@ -56,9 +60,9 @@ int RScanner::Open()
 					++Line;
 					Utils::TrimString(Line);
 
-					/* Append the exclusion to the exclusion list */
+					/* Append the filter to the filter list */
 
-					if ((RetVal = AddExclusion(Line)) != KErrNone)
+					if ((RetVal = AddFilter(Line, false)) != KErrNone)
 					{
 						break;
 					}
@@ -70,7 +74,10 @@ int RScanner::Open()
 						++Line;
 						Utils::TrimString(Line);
 
-						printf("Adding inclusion: %s\n", Line);
+						if ((RetVal = AddFilter(Line, true)) != KErrNone)
+						{
+							break;
+						}
 					}
 					else if (*Line != '#')
 					{
@@ -101,71 +108,110 @@ int RScanner::Open()
 
 void RScanner::Close()
 {
-	TExclusion *Exclusion;
+	TFilter *Filter;
 
-	/* Iterate through the items in the directory exclusion list and delete them */
+	/* Iterate through the items in the directory filter list and delete them */
 
-	while ((Exclusion = m_oDirectories.RemHead()) != NULL)
+	while ((Filter = m_oDirectories.RemHead()) != NULL)
 	{
-		delete Exclusion;
+		delete Filter;
 	}
 
-	/* Iterate through the items in the file exclusion wildcard list and delete them */
+	/* Iterate through the items in the file filter wildcard list and delete them */
 
-	while ((Exclusion = m_oFiles.RemHead()) != NULL)
+	while ((Filter = m_oFiles.RemHead()) != NULL)
 	{
-		delete Exclusion;
+		delete Filter;
 	}
+
+	/* And reset the class to is initial state for reuse */
+
+	m_bBreakPrinted = false;
+	m_poLastFilter = NULL;
 }
 
 /* Written: Wednesday 04-Aug-2010 10:18 am */
 
-int RScanner::AddExclusion(char *a_pcLine)
+int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 {
 	char *Path;
 	const char *FileName;
 	int RetVal;
-	TExclusion *Exclusion;
+	TFilter *Filter;
 
 	/* Assume failure */
 
 	RetVal = KErrNoMemory;
 
-	/* Allocate a buffer large enough to hold the exclusion string and a list node */
+	/* Allocate a buffer large enough to hold the filter string and a list node */
 	/* to hold it */
 
 	if ((Path = new char[strlen(a_pcLine) + 1]) != NULL)
 	{
-		if ((Exclusion = new TExclusion(Path)) != NULL)
+		if ((Filter = new TFilter(Path)) != NULL)
 		{
 			RetVal = KErrNone;
 
-			/* See if the exclusion is a filename wildcard and if so add it to the file exclusion wildcard list */
+			/* See if the filter is a filename wildcard and if so add it to the file filter wildcard list */
 
 			FileName = Utils::FilePart(a_pcLine);
 
 			if (*FileName != '\0')
 			{
 				strcpy(Path, FileName);
-				m_oFiles.AddTail(Exclusion);
 
-				printf("Found file \"%s\"\n", Exclusion->m_pccName);
+				if (a_bInclusion)
+				{
+					/* File inclusion filters can only can only get added as embedded filters */
+
+					if (m_poLastFilter)
+					{
+						m_poLastFilter->m_oFilters.AddTail(Filter);
+
+						printf("  Added inclusion filter \"%s\" to directory filter \"%s\"\n", Path, m_poLastFilter->m_pccName);
+					}
+					else
+					{
+						printf("Warning: Ignoring file filter \"%s\"\n", Path);
+
+						delete Filter;
+					}
+				}
+				else
+				{
+					m_oFiles.AddTail(Filter);
+
+					printf("Added file filter \"%s\"\n", Path);
+				}
 			}
 
 			/* Otherwise add it to the directory list */
 
 			else
 			{
-				/* First, remove the trailing '/' that is appended to the directory name to be excluded */
+				if (!(a_bInclusion))
+				{
+					/* First, remove the trailing '/' that is appended to the directory name to be filtered */
 
-				a_pcLine[strlen(a_pcLine) - 1] = '\0';
+					a_pcLine[strlen(a_pcLine) - 1] = '\0';
 
-				/* And add it to the directory list */
+					/* And add it to the directory list */
 
-				strcpy(Path, a_pcLine);
-				m_oDirectories.AddTail(Exclusion);
+					strcpy(Path, a_pcLine);
+					m_oDirectories.AddTail(Filter);
 
-				printf("Found directory \"%s\"\n", Exclusion->m_pccName);
+					/* And save the ptr to the directory filter so that embedded filters can be added to it l8r */
+
+					m_poLastFilter = Filter;
+
+					printf("Added directory filter \"%s\"\n", a_pcLine);
+				}
+				else
+				{
+					printf("  Warning: Ignoring inclusion filter \"%s\"\n", a_pcLine);
+
+					delete Filter;
+				}
 			}
 		}
 		else
@@ -192,25 +238,25 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 	int RetVal;
 	unsigned char *Buffer;
 	RFile SourceFile, DestFile;
-	TExclusion *Exclusion;
+	TFilter *Filter;
 
 	/* By default, copy the file */
 
 	CopyFile = true;
 	RetVal = KErrNone;
 
-	/* See if the filename contains an extension and if so, iterate through the list of file exclusion */
+	/* See if the filename contains an extension and if so, iterate through the list of file filter */
 	/* wildcards and see if there is a match */
 
 	if ((SourceExtension = Utils::Extension(a_pccSource)) != NULL)
 	{
-		if ((Exclusion = m_oFiles.GetHead()) != NULL)
+		if ((Filter = m_oFiles.GetHead()) != NULL)
 		{
 			do
 			{
-				/* Extract the extension of the current exclusion wildcard */
+				/* Extract the extension of the current filter wildcard */
 
-				if ((Extension = Utils::Extension(Exclusion->m_pccName)) != NULL)
+				if ((Extension = Utils::Extension(Filter->m_pccName)) != NULL)
 				{
 					/* If this matches the current file then bail out and don't copy the file */
 
@@ -222,7 +268,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 					}
 				}
 			}
-			while ((Exclusion = m_oFiles.GetSucc(Exclusion)) != NULL);
+			while ((Filter = m_oFiles.GetSucc(Filter)) != NULL);
 		}
 	}
 
@@ -822,46 +868,56 @@ char *RScanner::QualifyFileName(const char *a_pccDirectoryName, const char *a_pc
 
 int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 {
-	bool CheckFile, CopyDir;
+	bool CheckFile, CopyDir, InclusionsOnly;
 	char *Found, *NextSource, *NextDest;
 	int Length, RetVal;
 	RDir SourceDir, DestDir;
 	const TEntry *Entry;
 	TEntryArray *SourceEntries, *DestEntries;
-	TExclusion *Exclusion;
+	TFilter *Filter;
 
 	/* By default, copy the directory */
 
+	InclusionsOnly = false;
 	CopyDir = true;
 	RetVal = KErrNone;
 
-	/* Iterate through the list of directory exclusions and see if there is a match for the source directory */
+	/* Iterate through the list of directory filters and see if there is a match for the source directory */
 
-	if ((Exclusion = m_oDirectories.GetHead()) != NULL)
+	if ((Filter = m_oDirectories.GetHead()) != NULL)
 	{
 		do
 		{
-			/* If the directory exclusion is a substring of the current source directory name then */
+			/* If the directory filter is a substring of the current source directory name then */
 			/* bail out and don't copy the directory */
 
-			if ((Found = strstr(a_pcSource, Exclusion->m_pccName)) != NULL)
+			if ((Found = strstr(a_pcSource, Filter->m_pccName)) != NULL)
 			{
 				/* Check to ensure that the directory name found is not a substring of a larger directory name. */
 				/* For instance, we want "armv5" to match "armv5" but not "armv5smp" */
 
-				Length = strlen(Exclusion->m_pccName);
+				Length = strlen(Filter->m_pccName);
 
 				if ((Found[Length] == '\0') || (Found[Length] == '/'))
 				{
-					printf("Excluding %s\n", a_pcSource);
+					if (Filter->m_oFilters.GetHead() == NULL)
+					{
+						printf("Excluding %s\n", a_pcSource); // TODO: CAW - VERBOSE only
 
-					CopyDir = false;
+						CopyDir = false;
+					}
+					else
+					{
+						printf("Copying %s with inclusions\n", a_pcSource);
+
+						InclusionsOnly = true;
+					}
 
 					break;
 				}
 			}
 		}
-		while ((Exclusion = m_oDirectories.GetSucc(Exclusion)) != NULL);
+		while ((Filter = m_oDirectories.GetSucc(Filter)) != NULL);
 	}
 
 	/* Copy the directory if required */
@@ -907,7 +963,38 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 									}
 									else
 									{
-										RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
+										if (InclusionsOnly)
+										{
+											const char *Extension, *SourceExtension;
+
+											//if (strstr(Entry->iName, Filter->m_oInclusions.GetHead()->m_pccName))
+											if ((SourceExtension = Utils::Extension(Entry->iName)) != NULL)
+											{
+												//if ((Filter = m_oFiles.GetHead()) != NULL)
+												//{
+													//do
+													//{
+														/* Extract the extension of the current filter wildcard */
+
+														if ((Extension = Utils::Extension(Filter->m_oFilters.GetHead()->m_pccName)) != NULL)
+														{
+															if (strcmp(Extension, SourceExtension) == 0)
+															{
+																printf("Found %s in %s\n", Filter->m_oFilters.GetHead()->m_pccName, Entry->iName);
+
+																RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
+															}
+														}
+											}
+
+											{
+												//printf("Found %s in %s\n", Filter->m_oInclusions.GetHead()->m_pccName, Entry->iName);
+											}
+										}
+										else
+										{
+											RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
+										}
 									}
 								}
 								else

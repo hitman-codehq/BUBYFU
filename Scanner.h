@@ -25,41 +25,54 @@
 class TEntry;
 class TEntryArray;
 
-/* Each directory or file pattern that can be excluded is represented by an instance */
-/* of this class in the exclusion list */
+/* Each directory or file pattern that can be filtered is represented by an instance */
+/* of this class in the filter list */
 
-class TExclusion
+class TFilter
 {
 public:
 
-	StdListNode<TExclusion>	m_oStdListNode;		/* Standard list node */
-	const char				*m_pccName;			/* Directory or file pattern to be excluded */
+	StdListNode<TFilter>	m_oStdListNode;		/* Standard list node */
+	StdList<TFilter>		m_oFilters;			/* List of filters to be recursively applied */
+	const char				*m_pccName;			/* Directory or file pattern to use as filter */
 
-	TExclusion(const char *a_pccName)
+	TFilter(const char *a_pccName)
 	{
 		m_pccName = a_pccName;
 	}
 
-	~TExclusion()
+	~TFilter()
 	{
+		TFilter *Filter;
+
+		/* Iterate through the items in the directory filter list and delete them */
+
+		while ((Filter = m_oFilters.RemHead()) != NULL)
+		{
+			delete Filter;
+		}
+
+		/* And delete the filter's name */
+
 		delete [] (char *) m_pccName;
 	}
 };
 
 /* A class for scanning two directories for directory and file entries, and checking to see that */
-/* the contents of one directory matches the other.  This process is performed recursively. */
+/* the contents of one directory matches the other.  This process is performed recursively */
 
 class RScanner
 {
 private:
 
 	bool				m_bBreakPrinted;	/* true if an error has been printed for ctrl-c */
-	StdList<TExclusion>	m_oDirectories;		/* List of directories to be excluded */
-	StdList<TExclusion>	m_oFiles;			/* List of files to be excluded */
+	StdList<TFilter>	m_oDirectories;		/* List of directories to be filtered out */
+	StdList<TFilter>	m_oFiles;			/* List of files to be filtered out */
+	TFilter				*m_poLastFilter;	/* Ptr to last directory filter, if any */
 
 private:
 
-	int AddExclusion(char *a_pcLine);
+	int AddFilter(char *a_pcLine, bool a_bInclusion);
 
 	int CopyFile(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry);
 
@@ -79,7 +92,11 @@ private:
 
 public:
 
-	RScanner() { m_bBreakPrinted = false;}
+	RScanner()
+	{
+		m_bBreakPrinted = false;
+		m_poLastFilter= NULL;
+	}
 
 	int Open();
 
