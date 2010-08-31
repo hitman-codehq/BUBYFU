@@ -5,6 +5,7 @@
 #include <Dir.h>
 #include <File.h>
 #include <StdTextFile.h>
+#include <StdWildcard.h>
 #include <stdio.h>
 #include <string.h>
 #include "Scanner.h"
@@ -860,11 +861,12 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 {
 	bool CheckFile, CopyDir, InclusionsOnly;
 	char *Found, *NextSource, *NextDest;
+	const char *DirectoryName;
 	int Length, RetVal;
 	RDir SourceDir, DestDir;
 	const TEntry *Entry;
 	TEntryArray *SourceEntries, *DestEntries;
-	TFilter *Filter;
+	TFilter *Filter, *Inclusion;
 
 	/* By default, copy the directory */
 
@@ -872,40 +874,67 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 	CopyDir = true;
 	RetVal = KErrNone;
 
+	// TODO: CAW - Finish
+	DirectoryName = (a_pcSource + strlen(a_pcSource));
+
+	while (DirectoryName > a_pcSource)
+	{
+		if ((*DirectoryName == '/') || (*DirectoryName == '\\'))
+		{
+			++DirectoryName;
+
+			break;
+		}
+		else
+		{
+			--DirectoryName;
+		}
+	}
+
 	/* Iterate through the list of directory filters and see if there is a match for the source directory */
 
+	// TODO: CAW - Doesn't work with directories
 	if ((Filter = m_oDirectories.GetHead()) != NULL)
 	{
 		do
 		{
-			/* If the directory filter is a substring of the current source directory name then */
-			/* bail out and don't copy the directory */
+			/* Perform a wildcard match of the directory filter on the directory name */
 
-			if ((Found = strstr(a_pcSource, Filter->m_pccName)) != NULL)
+			RWildcard Wildcard;
+
+			if (Wildcard.Open(Filter->m_pccName) == KErrNone)
 			{
-				/* Check to ensure that the directory name found is not a substring of a larger directory name. */
-				/* For instance, we want "armv5" to match "armv5" but not "armv5smp" */
+				/* If the directory matches the directory filter then we want to bail out and not copy */
+				/* the directory, unless the filter also contains an inclusion filter */
 
-				Length = strlen(Filter->m_pccName);
-
-				if ((Found[Length] == '\0') || (Found[Length] == '/'))
+				if (Wildcard.Match(DirectoryName))
 				{
-					// TODO: CAW
-					if (Filter->m_oFilters.GetHead() == NULL)
+					/* Check to ensure that the directory name found is not a substring of a larger directory name. */
+					/* For instance, we want "armv5" to match "armv5" but not "armv5smp" */
+					// TODO: CAW - Finish
+					//Length = strlen(Filter->m_pccName);
+
+					//if ((Found[Length] == '\0') || (Found[Length] == '/'))
 					{
-						if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
+						// TODO: CAW
+						if (Filter->m_oFilters.GetHead() == NULL)
+						{
+							if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
 
-						CopyDir = false;
+							CopyDir = false;
+						}
+						else
+						{
+							if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
+
+							InclusionsOnly = true;
+						}
+
+						break;
 					}
-					else
-					{
-						if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
-
-						InclusionsOnly = true;
-					}
-
-					break;
 				}
+
+				Wildcard.Close();
 			}
 		}
 		while ((Filter = m_oDirectories.GetSucc(Filter)) != NULL);
@@ -954,34 +983,41 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 									}
 									else
 									{
+										/* If we are copying only inclusions in this directory then scan through the inclusion */
+										/* wildcard list for this directory's filter and see if the filename matches any of the */
+										/* inclusion wildcards */
+
 										if (InclusionsOnly)
 										{
-											const char *Extension, *SourceExtension;
-
-											//if (strstr(Entry->iName, Filter->m_oInclusions.GetHead()->m_pccName))
-											if ((SourceExtension = Utils::Extension(Entry->iName)) != NULL)
+											if ((Inclusion = Filter->m_oFilters.GetHead()) != NULL)
 											{
-												//if ((Filter = m_oFiles.GetHead()) != NULL)
-												//{
-													//do
-													//{
-														/* Extract the extension of the current filter wildcard */
+												do
+												{
+													/* Perform a wildcard match of the inclusion filter on the current file */
 
-														if ((Extension = Utils::Extension(Filter->m_oFilters.GetHead()->m_pccName)) != NULL)
+													RWildcard Wildcard;
+
+													if (Wildcard.Open(Inclusion->m_pccName) == KErrNone)
+													{
+														if (Wildcard.Match(Entry->iName))
 														{
-															if (strcmp(Extension, SourceExtension) == 0)
-															{
-																if (g_oArgs[ARGS_VERBOSE]) printf("Found inclusion %s in %s\n", Filter->m_oFilters.GetHead()->m_pccName, Entry->iName);
+															/* The file matches the wildcard so copy it if necessary and break out of the */
+															/* loop that is checking the wildcards */
 
-																RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
-															}
+															RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
+
+															break;
 														}
-											}
 
-											{
-												//printf("Found %s in %s\n", Filter->m_oInclusions.GetHead()->m_pccName, Entry->iName);
+														Wildcard.Close();
+													}
+												}
+												while ((Inclusion = Filter->m_oFilters.GetSucc(Inclusion)) != NULL);
 											}
 										}
+
+										/* We are copying all files so just copy the file if necessary */
+
 										else
 										{
 											RetVal = CompareFiles(NextSource, NextDest, *Entry, *DestEntries);
@@ -1097,7 +1133,16 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 				{
 					if ((RetVal == KErrNotFound) && (g_oArgs[ARGS_COPY]))
 					{
-						RetVal = CopyDirectory(a_pcSource, a_pcDest);
+						// TODO: CAW - Bugger, what to do about this, which causes all directories that contains
+						//             exclusion filters get get copied?
+						//if (InclusionsOnly)
+						{
+							//RetVal = KErrNone;
+						}
+						//else
+						{
+							RetVal = CopyDirectory(a_pcSource, a_pcDest);
+						}
 					}
 					else
 					{
