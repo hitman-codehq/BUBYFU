@@ -18,6 +18,8 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
 // TODO: CAW - Finish the ALTDEST stuff or get rid of it
 // TODO: CAW - Add proper support for wildcards for both directories and files
+// TODO: CAW - If you add a directory to the exclude list after copying then it won't get deleted
+// TODO: CAW - Calling Utils::GetFileInfo() causes memory leaks as the user has to free TEntry::iName!
 
 /* # of bytes to read and write when copying files */
 
@@ -220,26 +222,22 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 	return(RetVal);
 }
 
-/* Written: Friday 02-Jan-2009 8:38 pm */
+/* Written: Saturday 23-Oct-2010 11:27 am */
 
-int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry)
+bool RScanner::CheckFilterList(const char *a_pccFileName)
 {
-	bool CopyFile;
+	bool RetVal;
 	const char *Extension, *SourceExtension;
-	int RetVal;
-	unsigned char *Buffer;
-	RFile SourceFile, DestFile;
 	TFilter *Filter;
 
-	/* By default, copy the file */
+	/* Assume the file is not on the filter list */
 
-	CopyFile = true;
-	RetVal = KErrNone;
+	RetVal = false;
 
 	/* See if the filename contains an extension and if so, iterate through the list of file filter */
 	/* wildcards and see if there is a match */
 
-	if ((SourceExtension = Utils::Extension(a_pccSource)) != NULL)
+	if ((SourceExtension = Utils::Extension(a_pccFileName)) != NULL)
 	{
 		if ((Filter = m_oFiles.GetHead()) != NULL)
 		{
@@ -253,7 +251,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 					if (strcmp(Extension, SourceExtension) == 0)
 					{
-						CopyFile = false;
+						RetVal = true;
 
 						break;
 					}
@@ -263,97 +261,107 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 		}
 	}
 
-	/* Copy the file if required */
+	return(RetVal);
+}
 
-	if (CopyFile)
+/* Written: Friday 02-Jan-2009 8:38 pm */
+
+int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry)
+{
+	int RetVal;
+	unsigned char *Buffer;
+	RFile SourceFile, DestFile;
+
+	/* Assume success */
+
+	RetVal = KErrNone;
+
+	printf("Copying file \"%s\" to \"%s\"\n", a_pccSource, a_pccDest);
+
+	if ((RetVal = SourceFile.Open(a_pccSource, EFileRead)) == KErrNone)
 	{
-		printf("Copying file \"%s\" to \"%s\"\n", a_pccSource, a_pccDest);
+		/* RFile::Create() will fail if a destination file already exists so delete it before trying */
+		/* to create a new one.  RScanner::DeleteFile() will also remove any read only protection bit */
+		/* that is set before trying to delete the file */
 
-		if ((RetVal = SourceFile.Open(a_pccSource, EFileRead)) == KErrNone)
+		if ((RetVal = DeleteFile(a_pccDest)) == KErrNotFound)
 		{
-			/* RFile::Create() will fail if a destination file already exists so delete it before trying */
-			/* to create a new one.  RScanner::DeleteFile() will also remove any read only protection bit */
-			/* that is set before trying to delete the file */
+			RetVal = KErrNone;
+		}
 
-			if ((RetVal = DeleteFile(a_pccDest)) == KErrNotFound)
+		if (RetVal == KErrNone)
+		{
+			if ((RetVal = DestFile.Create(a_pccDest, EFileWrite)) == KErrNone)
 			{
-				RetVal = KErrNone;
-			}
-
-			if (RetVal == KErrNone)
-			{
-				if ((RetVal = DestFile.Create(a_pccDest, EFileWrite)) == KErrNone)
+				if ((Buffer = new unsigned char[BUFFER_SIZE]) != NULL)
 				{
-					if ((Buffer = new unsigned char[BUFFER_SIZE]) != NULL)
+					do
 					{
-						do
+						if ((RetVal = SourceFile.Read(Buffer, BUFFER_SIZE)) > 0)
 						{
-							if ((RetVal = SourceFile.Read(Buffer, BUFFER_SIZE)) > 0)
+							if ((RetVal = DestFile.Write(Buffer, RetVal)) < 0)
 							{
-								if ((RetVal = DestFile.Write(Buffer, RetVal)) < 0)
-								{
-									Utils::Error("Unable to write to file \"%s\" (Error %d)", a_pccDest, RetVal);
-								}
-							}
-							else
-							{
-								if (RetVal < 0)
-								{
-									Utils::Error("Unable to read from file \"%s\" (Error %d)", a_pccSource, RetVal);
-								}
+								Utils::Error("Unable to write to file \"%s\" (Error %d)", a_pccDest, RetVal);
 							}
 						}
-						while (RetVal > 0);
-
-						delete [] Buffer;
+						else
+						{
+							if (RetVal < 0)
+							{
+								Utils::Error("Unable to read from file \"%s\" (Error %d)", a_pccSource, RetVal);
+							}
+						}
 					}
-					else
-					{
-						RetVal = KErrNoMemory;
+					while (RetVal > 0);
 
-						Utils::Error("Out of memory");
-					}
-
-					DestFile.Close();
+					delete [] Buffer;
 				}
 				else
 				{
-					Utils::Error("Unable to open dest file \"%s\" (Error %d)", a_pccDest, RetVal);
+					RetVal = KErrNoMemory;
+
+					Utils::Error("Out of memory");
 				}
+
+				DestFile.Close();
 			}
 			else
 			{
-				Utils::Error("Unable to delete dest file \"%s\" (Error %d)", a_pccDest, RetVal);
-			}
-
-			SourceFile.Close();
-
-			/* If successful, set the date and time and protection bits in the destination file to match those */
-			/* in the source file */
-
-			if (RetVal == KErrNone)
-			{
-				if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) == KErrNone)
-				{
-					if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
-					{
-						Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
-					}
-				}
-				else
-				{
-					Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
-				}
+				Utils::Error("Unable to open dest file \"%s\" (Error %d)", a_pccDest, RetVal);
 			}
 		}
 		else
 		{
-			Utils::Error("Unable to open source file \"%s\" (Error %d)", a_pccSource, RetVal);
+			Utils::Error("Unable to delete dest file \"%s\" (Error %d)", a_pccDest, RetVal);
+		}
 
-			if (g_oArgs[ARGS_NOERRORS])
+		SourceFile.Close();
+
+		/* If successful, set the date and time and protection bits in the destination file to match those */
+		/* in the source file */
+
+		if (RetVal == KErrNone)
+		{
+			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) == KErrNone)
 			{
-				RetVal = KErrNone;
+				if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
+				{
+					Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
+				}
 			}
+			else
+			{
+				Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
+			}
+		}
+	}
+	else
+	{
+		Utils::Error("Unable to open source file \"%s\" (Error %d)", a_pccSource, RetVal);
+
+		if (g_oArgs[ARGS_NOERRORS])
+		{
+			RetVal = KErrNone;
 		}
 	}
 
@@ -537,35 +545,40 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 			if ((a_roEntry.iSize != DestEntry->iSize) || (!(ModifiedOk)) ||
 				((!(g_oArgs[ARGS_NOPROTECT])) && (a_roEntry.iAttributes != DestEntry->iAttributes)))
 			{
-				/* If the user has specified the COPY command line option then copy the file now */
+				/* Only copy the file or print a message if the file is not on the filter list */
 
-				if (g_oArgs[ARGS_COPY])
+				if (!(CheckFilterList(a_pccSource)))
 				{
-					RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
-				}
+					/* If the user has specified the COPY command line option then copy the file now */
 
-				/* Otherwise just display information on why the files do not match */
-
-				else
-				{
-					printf("File \"%s\" does not match: ", a_pccSource);
-
-					if (a_roEntry.iSize != DestEntry->iSize)
+					if (g_oArgs[ARGS_COPY])
 					{
-						printf("size = %d -vs- %d\n", a_roEntry.iSize, DestEntry->iSize);
+						RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
 					}
-					else if (!(ModifiedOk))
-					{
-						char SourceDate[20], SourceTime[20], DestDate[20], DestTime[20];
 
-						Utils::TimeToString(SourceDate, SourceTime, a_roEntry);
-						Utils::TimeToString(DestDate, DestTime, *DestEntry);
+					/* Otherwise just display information on why the files do not match */
 
-						printf("%s %s -vs- %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
-					}
 					else
 					{
-						printf("attributes = %x -vs- %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+						printf("File \"%s\" does not match: ", a_pccSource);
+
+						if (a_roEntry.iSize != DestEntry->iSize)
+						{
+							printf("size = %d -vs- %d\n", a_roEntry.iSize, DestEntry->iSize);
+						}
+						else if (!(ModifiedOk))
+						{
+							char SourceDate[20], SourceTime[20], DestDate[20], DestTime[20];
+
+							Utils::TimeToString(SourceDate, SourceTime, a_roEntry);
+							Utils::TimeToString(DestDate, DestTime, *DestEntry);
+
+							printf("%s %s -vs- %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+						}
+						else
+						{
+							printf("attributes = %x -vs- %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+						}
 					}
 				}
 			}
@@ -589,15 +602,20 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 	if (!(DestEntry))
 	{
-		/* If the user has specified the COPY command line option then copy the file now */
+		/* Only copy the file or print a message if the file is not on the filter list */
 
-		if (g_oArgs[ARGS_COPY])
+		if (!(CheckFilterList(a_pccSource)))
 		{
-			RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
-		}
-		else
-		{
-			printf("File \"%s\" does not exist\n", a_pccDest);
+			/* If the user has specified the COPY command line option then copy the file now */
+
+			if (g_oArgs[ARGS_COPY])
+			{
+				RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
+			}
+			else
+			{
+				printf("File \"%s\" does not exist\n", a_pccDest);
+			}
 		}
 	}
 
@@ -860,9 +878,9 @@ char *RScanner::QualifyFileName(const char *a_pccDirectoryName, const char *a_pc
 int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 {
 	bool CheckFile, CopyDir, InclusionsOnly;
-	char *Found, *NextSource, *NextDest;
+	char *NextSource, *NextDest;
 	const char *DirectoryName;
-	int Length, RetVal;
+	int RetVal;
 	RDir SourceDir, DestDir;
 	const TEntry *Entry;
 	TEntryArray *SourceEntries, *DestEntries;
@@ -874,26 +892,13 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 	CopyDir = true;
 	RetVal = KErrNone;
 
-	// TODO: CAW - Finish
-	DirectoryName = (a_pcSource + strlen(a_pcSource));
+	/* Get the name of the last directory or file in the path.  The Utils::FilePart() function can be */
+	/* used for this as it doesn't know the difference */
 
-	while (DirectoryName > a_pcSource)
-	{
-		if ((*DirectoryName == '/') || (*DirectoryName == '\\'))
-		{
-			++DirectoryName;
-
-			break;
-		}
-		else
-		{
-			--DirectoryName;
-		}
-	}
+	DirectoryName = Utils::FilePart(a_pcSource);
 
 	/* Iterate through the list of directory filters and see if there is a match for the source directory */
 
-	// TODO: CAW - Doesn't work with directories
 	if ((Filter = m_oDirectories.GetHead()) != NULL)
 	{
 		do
@@ -909,28 +914,17 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 				if (Wildcard.Match(DirectoryName))
 				{
-					/* Check to ensure that the directory name found is not a substring of a larger directory name. */
-					/* For instance, we want "armv5" to match "armv5" but not "armv5smp" */
-					// TODO: CAW - Finish
-					//Length = strlen(Filter->m_pccName);
-
-					//if ((Found[Length] == '\0') || (Found[Length] == '/'))
+					if (Filter->m_oFilters.GetHead() == NULL)
 					{
-						// TODO: CAW
-						if (Filter->m_oFilters.GetHead() == NULL)
-						{
-							if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
+						if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
 
-							CopyDir = false;
-						}
-						else
-						{
-							if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
+						CopyDir = false;
+					}
+					else
+					{
+						if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
 
-							InclusionsOnly = true;
-						}
-
-						break;
+						InclusionsOnly = true;
 					}
 				}
 
@@ -1135,11 +1129,11 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 					{
 						// TODO: CAW - Bugger, what to do about this, which causes all directories that contains
 						//             exclusion filters get get copied?
-						//if (InclusionsOnly)
+						if (InclusionsOnly)
 						{
-							//RetVal = KErrNone;
+							RetVal = KErrNone;
 						}
-						//else
+						else
 						{
 							RetVal = CopyDirectory(a_pcSource, a_pcDest);
 						}

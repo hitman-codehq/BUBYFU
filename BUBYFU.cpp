@@ -18,7 +18,7 @@ static const struct Resident g_oROMTag __attribute__((used)) =
 	NT_LIBRARY,
 	0,
 	"BUBYFU",
-	"\0$VER: BUBYFU 0.02 (28.12.2009)\r\n",
+	"\0$VER: BUBYFU 0.02 (23.10.2010)\r\n",
 	NULL
 };
 

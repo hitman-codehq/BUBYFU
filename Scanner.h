@@ -75,6 +75,8 @@ private:
 
 	int AddFilter(char *a_pcLine, bool a_bInclusion);
 
+	bool CheckFilterList(const char *a_pccFileName);
+
 	int CopyFile(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry);
 
 	int CopyDirectory(char *a_pcSource, char *a_pcDest);
