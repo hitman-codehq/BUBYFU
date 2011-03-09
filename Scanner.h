@@ -69,6 +69,7 @@ private:
 	bool				m_bBreakPrinted;	/* true if an error has been printed for ctrl-c */
 	StdList<TFilter>	m_oDirectories;		/* List of directories to be filtered out */
 	StdList<TFilter>	m_oFiles;			/* List of files to be filtered out */
+	StdList<TFilter>	m_oPaths;			/* List of paths to be filtered out */
 	TFilter				*m_poLastFilter;	/* Ptr to last directory filter, if any */
 
 private:

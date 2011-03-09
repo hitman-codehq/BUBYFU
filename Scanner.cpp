@@ -18,8 +18,13 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
 // TODO: CAW - Finish the ALTDEST stuff or get rid of it
 // TODO: CAW - Add proper support for wildcards for both directories and files
-// TODO: CAW - If you add a directory to the exclude list after copying then it won't get deleted
+// TODO: CAW - If you add a file to the exclude list after copying then it won't get deleted
 // TODO: CAW - Calling Utils::GetFileInfo() causes memory leaks as the user has to free TEntry::iName!
+// TODO: CAW - If a filter is added after a directory or file is copied and the command rerun, the
+//             filter should be respected and excluded directories now deleted
+
+// TODO: CAW - Temporary
+#define USE_MULTI_DIRS
 
 /* # of bytes to read and write when copying files */
 
@@ -103,6 +108,17 @@ void RScanner::Close()
 {
 	TFilter *Filter;
 
+#ifdef USE_MULTI_DIRS
+
+	/* Iterate through the items in the path filter list and delete them */
+
+	while ((Filter = m_oPaths.RemHead()) != NULL)
+	{
+		delete Filter;
+	}
+
+#endif // USE_MULTI_DIRS
+
 	/* Iterate through the items in the directory filter list and delete them */
 
 	while ((Filter = m_oDirectories.RemHead()) != NULL)
@@ -129,7 +145,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 {
 	char *Path;
 	const char *FileName;
-	int RetVal;
+	int Length, RetVal;
 	TFilter *Filter;
 
 	/* Assume failure */
@@ -139,7 +155,9 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 	/* Allocate a buffer large enough to hold the filter string and a list node */
 	/* to hold it */
 
-	if ((Path = new char[strlen(a_pcLine) + 1]) != NULL)
+	Length = strlen(a_pcLine);
+
+	if ((Path = new char[Length + 1]) != NULL)
 	{
 		if ((Filter = new TFilter(Path)) != NULL)
 		{
@@ -184,14 +202,42 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 			{
 				if (!(a_bInclusion))
 				{
+
+#ifdef USE_MULTI_DIRS
+
+					int Index, NumSlashes = 0; // TODO: CAW - Move
+
+					for (Index = 0; Index < Length; ++Index)
+					{
+						if (a_pcLine[Index] == '/')
+						{
+							++NumSlashes;
+						}
+					}
+
+#endif // USE_MULTI_DIRS
+
 					/* First, remove the trailing '/' that is appended to the directory name to be filtered */
 
-					a_pcLine[strlen(a_pcLine) - 1] = '\0';
+					a_pcLine[Length - 1] = '\0';
 
 					/* And add it to the directory list */
 
 					strcpy(Path, a_pcLine);
-					m_oDirectories.AddTail(Filter);
+
+#ifdef USE_MULTI_DIRS
+
+					if (NumSlashes >= 2)
+					{
+						m_oPaths.AddTail(Filter);
+					}
+					else
+
+#endif // USE_MULTI_DIRS
+
+					{
+						m_oDirectories.AddTail(Filter);
+					}
 
 					/* And save the ptr to the directory filter so that embedded filters can be added to it l8r */
 
@@ -813,7 +859,7 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 
 /* Written: Tuesday 29-Dec-2009 9:58 am */
 
-// TODO: CAW - Make a test case for this, including testing for "\"
+// TODO: CAW - Make a test case for this.  '\\' is no longer required
 char *RScanner::ExtractDirectory(char *a_pcPath)
 {
 	char *RetVal;
@@ -883,6 +929,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 	int RetVal;
 	RDir SourceDir, DestDir;
 	const TEntry *Entry;
+	TEntry DirEntry;
 	TEntryArray *SourceEntries, *DestEntries;
 	TFilter *Filter, *Inclusion;
 
@@ -933,6 +980,46 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 		}
 		while ((Filter = m_oDirectories.GetSucc(Filter)) != NULL);
 	}
+
+#ifdef USE_MULTI_DIRS
+
+	// TODO: CAW - Make this a function and use it above
+	if ((Filter = m_oPaths.GetHead()) != NULL)
+	{
+		do
+		{
+			/* Perform a wildcard match of the directory filter on the directory name */
+
+			RWildcard Wildcard;
+
+			if (Wildcard.Open(Filter->m_pccName) == KErrNone)
+			{
+				/* If the directory matches the directory filter then we want to bail out and not copy */
+				/* the directory, unless the filter also contains an inclusion filter */
+
+				if (Wildcard.Match(a_pcSource))
+				{
+					if (Filter->m_oFilters.GetHead() == NULL)
+					{
+						if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
+
+						CopyDir = false;
+					}
+					else
+					{
+						if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
+
+						InclusionsOnly = true;
+					}
+				}
+
+				Wildcard.Close();
+			}
+		}
+		while ((Filter = m_oPaths.GetSucc(Filter)) != NULL);
+	}
+
+#endif // USE_MULTI_DIRS
 
 	/* Copy the directory if required */
 
@@ -1170,6 +1257,24 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 			if (g_oArgs[ARGS_NOERRORS])
 			{
 				RetVal = KErrNone;
+			}
+		}
+	}
+	else
+	{
+		/* If the directory was filtered out then we may have to delete it if requested */
+
+		if (Utils::GetFileInfo(a_pcDest, &DirEntry) == KErrNone)
+		{
+			if (g_oArgs[ARGS_DELETEDIRS])
+			{
+				printf("Deleting directory \"%s\"\n", a_pcDest);
+
+				RetVal = DeleteDir(a_pcDest); // TODO: CAW - NOERRORS?
+			}
+			else if ((!(g_oArgs[ARGS_NODEST])) && (!(g_oArgs[ARGS_NORECURSE])))
+			{
+				printf("Directory \"%s\" exists only in destination\n", a_pcDest);
 			}
 		}
 	}
