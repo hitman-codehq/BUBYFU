@@ -69,6 +69,12 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 
 			if ((Source) && (Dest))
 			{
+				/* Normalise the paths so they only contain the '/' directory separator.  This will */
+				/* make comparing against the filter list easier */
+
+				Utils::NormalisePath(Source);
+				Utils::NormalisePath(Dest);
+
 				Result = Scanner.Scan(Source, Dest);
 			}
 			else
