@@ -16,10 +16,7 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Comment entire file
 // TODO: CAW - Think about how to handle links
 // TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
-// TODO: CAW - Add proper support for wildcards for both directories and files
-// TODO: CAW - If you add a file to the exclude list after copying then it won't get deleted
-
-// TODO: CAW - Temporary
+// TODO: CAW - Add proper support for wildcards for both directories and files & remove USE_MULTI_DIRS
 #define USE_MULTI_DIRS
 
 /* # of bytes to read and write when copying files */
@@ -141,7 +138,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 {
 	char *Path;
 	const char *FileName;
-	int Length, RetVal;
+	int Index, Length, NumSlashes, RetVal;
 	TFilter *Filter;
 
 	/* Assume failure */
@@ -152,6 +149,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 	/* to hold it */
 
 	Length = strlen(a_pcLine);
+	NumSlashes = 0;
 
 	if ((Path = new char[Length + 1]) != NULL)
 	{
@@ -200,8 +198,6 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 				{
 
 #ifdef USE_MULTI_DIRS
-
-					int Index, NumSlashes = 0; // TODO: CAW - Move
 
 					for (Index = 0; Index < Length; ++Index)
 					{
