@@ -50,6 +50,10 @@ int RScanner::Open()
 
 				Utils::TrimString(Line);
 
+				/* Normalise the path so it only contains the '/' directory separator */
+
+				Utils::NormalisePath(Line);
+
 				/* Check for a filter */
 
 				if ((*Line == '-') || (*Line == '+'))
