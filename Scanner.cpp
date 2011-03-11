@@ -16,7 +16,6 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Comment entire file
 // TODO: CAW - Think about how to handle links
 // TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
-// TODO: CAW - Finish the ALTDEST stuff or get rid of it
 // TODO: CAW - Add proper support for wildcards for both directories and files
 // TODO: CAW - If you add a file to the exclude list after copying then it won't get deleted
 // TODO: CAW - Calling Utils::GetFileInfo() causes memory leaks as the user has to free TEntry::iName!
