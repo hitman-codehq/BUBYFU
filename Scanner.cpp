@@ -18,9 +18,6 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 // TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
 // TODO: CAW - Add proper support for wildcards for both directories and files
 // TODO: CAW - If you add a file to the exclude list after copying then it won't get deleted
-// TODO: CAW - Calling Utils::GetFileInfo() causes memory leaks as the user has to free TEntry::iName!
-// TODO: CAW - If a filter is added after a directory or file is copied and the command rerun, the
-//             filter should be respected and excluded directories now deleted
 
 // TODO: CAW - Temporary
 #define USE_MULTI_DIRS
@@ -582,17 +579,17 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 				}
 			}
 
-			/* If the source and destination files are different sizes, or their modification times are */
-			/* different, or their attributes are different and the user has not specified the NOPROTECT */
-			/* command line option, then the two files are classified as not matching and must be either */
-			/* copied or at least information printed about them */
+			/* Only copy the file or print a message if the file is not on the filter list */
 
-			if ((a_roEntry.iSize != DestEntry->iSize) || (!(ModifiedOk)) ||
-				((!(g_oArgs[ARGS_NOPROTECT])) && (a_roEntry.iAttributes != DestEntry->iAttributes)))
+			if (!(CheckFilterList(a_pccSource)))
 			{
-				/* Only copy the file or print a message if the file is not on the filter list */
+				/* If the source and destination files are different sizes, or their modification times are */
+				/* different, or their attributes are different and the user has not specified the NOPROTECT */
+				/* command line option, then the two files are classified as not matching and must be either */
+				/* copied or at least information printed about them */
 
-				if (!(CheckFilterList(a_pccSource)))
+				if ((a_roEntry.iSize != DestEntry->iSize) || (!(ModifiedOk)) ||
+					((!(g_oArgs[ARGS_NOPROTECT])) && (a_roEntry.iAttributes != DestEntry->iAttributes)))
 				{
 					/* If the user has specified the COPY command line option then copy the file now */
 
@@ -626,13 +623,13 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 						}
 					}
 				}
+
+				/* Remove the entry from the destination list to speed up future searches and facilitate the */
+				/* ability to detect files that only exist in the destination directory */
+
+				a_roDestEntries.Remove(DestEntry);
+				delete DestEntry;
 			}
-
-			/* Remove the entry from the destination list to speed up future searches and facilitate the */
-			/* ability to detect files that only exist in the destination directory */
-
-			a_roDestEntries.Remove(DestEntry);
-			delete DestEntry;
 
 			break;
 		}
