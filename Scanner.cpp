@@ -400,11 +400,11 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 	else
 	{
 		Utils::Error("Unable to open source file \"%s\" (Error %d)", a_pccSource, RetVal);
+	}
 
-		if (g_oArgs[ARGS_NOERRORS])
-		{
-			RetVal = KErrNone;
-		}
+	if (g_oArgs[ARGS_NOERRORS])
+	{
+		RetVal = KErrNone;
 	}
 
 	return(RetVal);
@@ -473,25 +473,7 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 
 	/* Scan the source and destination directories and mirror the source into the destination */
 
-	if (!(g_oArgs[ARGS_NORECURSE]))
-	{
-		RetVal = Scan(a_pcSource, a_pcDest);
-	}
-	else
-	{
-		TEntry Entry;
-
-		if (Utils::GetFileInfo(a_pcDest, &Entry) == KErrNone)
-		{
-			RetVal = (Entry.iIsDir) ? KErrNone : KErrGeneral;
-		}
-		else
-		{
-			RetVal = KErrNotFound;
-		}
-	}
-
-	if (RetVal == KErrNone)
+	if ((RetVal = Scan(a_pcSource, a_pcDest)) == KErrNone)
 	{
 		/* Iterate through the destination list and find the directory we have just mirrored into */
 
@@ -514,7 +496,7 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 		}
 	}
 
-	//if (g_oArgs[ARGS_NOERRORS]) This is obsolete + how does it interact with the above KErrNotFound?
+	if (g_oArgs[ARGS_NOERRORS])
 	{
 		RetVal = KErrNone;
 	}
@@ -776,6 +758,7 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 	{
 		if ((RetVal = Dir.Read(EntryArray)) == KErrNone)
 		{
+			NextEntry = NULL;
 			Entry = EntryArray->GetHead();
 
 			while (Entry)
@@ -799,14 +782,13 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 
 							if (!(g_oArgs[ARGS_NOERRORS]))
 							{
-								delete [] NextEntry;
-
 								break;
 							}
 						}
 					}
 
 					delete [] NextEntry;
+					NextEntry = NULL;
 				}
 				else
 				{
@@ -819,6 +801,8 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 
 				Entry = EntryArray->GetSucc(Entry);
 			}
+
+			delete [] NextEntry;
 		}
 		else
 		{
@@ -1029,6 +1013,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 				{
 					if ((RetVal = DestDir.Read(DestEntries)) == KErrNone)
 					{
+						NextSource = NextDest = NULL;
 						Entry = SourceEntries->GetHead();
 
 						while (Entry)
@@ -1056,7 +1041,10 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 								{
 									if (Entry->IsDir())
 									{
-										RetVal = CompareDirectories(NextSource, NextDest, *Entry, *DestEntries);
+										if (!(g_oArgs[ARGS_NORECURSE]))
+										{
+											RetVal = CompareDirectories(NextSource, NextDest, *Entry, *DestEntries);
+										}
 									}
 									else
 									{
@@ -1109,7 +1097,9 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 								}
 
 								delete [] NextDest;
+								NextDest = NULL;
 								delete [] NextSource;
+								NextSource = NULL;
 
 								if (g_bBreak)
 								{
@@ -1134,6 +1124,9 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 							Entry = SourceEntries->GetSucc(Entry);
 						}
+
+						delete [] NextDest;
+						delete [] NextSource;
 
 						if (RetVal == KErrNone)
 						{
@@ -1173,8 +1166,6 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 													if (!(g_oArgs[ARGS_NOERRORS]))
 													{
-														delete [] NextDest;
-
 														break;
 													}
 												}
@@ -1186,6 +1177,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 										}
 
 										delete [] NextDest;
+										NextDest = NULL;
 									}
 									else
 									{
@@ -1196,6 +1188,8 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 									Entry = DestEntries->GetSucc(Entry);
 								}
+
+								delete [] NextDest;
 							}
 						}
 					}
