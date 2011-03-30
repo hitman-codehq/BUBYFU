@@ -471,29 +471,36 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 	int RetVal;
 	const TEntry *DestEntry;
 
-	/* Scan the source and destination directories and mirror the source into the destination */
+	/* Scan the source and destination directories and mirror the source into the destination, but only */
+	/* if the NORECURSE parameter has not been specified */
 
-	if ((RetVal = Scan(a_pcSource, a_pcDest)) == KErrNone)
+	if (!(g_oArgs[ARGS_NORECURSE]))
 	{
-		/* Iterate through the destination list and find the directory we have just mirrored into */
+		RetVal = Scan(a_pcSource, a_pcDest);
+	}
+	else
+	{
+		RetVal = KErrNone;
+	}
 
-		DestEntry = a_roDestEntries.GetHead();
+	/* Iterate through the destination list and find the directory we have just mirrored into */
 
-		while (DestEntry)
+	DestEntry = a_roDestEntries.GetHead();
+
+	while (DestEntry)
+	{
+		if (stricmp(a_roEntry.iName, DestEntry->iName) == 0)
 		{
-			if (stricmp(a_roEntry.iName, DestEntry->iName) == 0)
-			{
-				/* Remove the entry from the destination list to speed up future searches and facilitate the */
-				/* ability to detect files that only exist in the destination directory */
+			/* Remove the entry from the destination list to speed up future searches and facilitate the */
+			/* ability to detect files that only exist in the destination directory */
 
-				a_roDestEntries.Remove(DestEntry);
-				delete DestEntry;
+			a_roDestEntries.Remove(DestEntry);
+			delete DestEntry;
 
-				break;
-			}
-
-			DestEntry = a_roDestEntries.GetSucc(DestEntry);
+			break;
 		}
+
+		DestEntry = a_roDestEntries.GetSucc(DestEntry);
 	}
 
 	if (g_oArgs[ARGS_NOERRORS])
@@ -1041,10 +1048,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 								{
 									if (Entry->IsDir())
 									{
-										if (!(g_oArgs[ARGS_NORECURSE]))
-										{
-											RetVal = CompareDirectories(NextSource, NextDest, *Entry, *DestEntries);
-										}
+										RetVal = CompareDirectories(NextSource, NextDest, *Entry, *DestEntries);
 									}
 									else
 									{
@@ -1243,11 +1247,6 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 		else
 		{
 			Utils::Error("Unable to open source directory \"%s\" (Error %d)", a_pcSource, RetVal);
-
-			if (g_oArgs[ARGS_NOERRORS])
-			{
-				RetVal = KErrNone;
-			}
 		}
 	}
 	else
@@ -1260,13 +1259,18 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 			{
 				printf("Deleting directory \"%s\"\n", a_pcDest);
 
-				RetVal = DeleteDir(a_pcDest); // TODO: CAW - NOERRORS?
+				RetVal = DeleteDir(a_pcDest);
 			}
 			else if ((!(g_oArgs[ARGS_NODEST])) && (!(g_oArgs[ARGS_NORECURSE])))
 			{
 				printf("Directory \"%s\" exists only in destination\n", a_pcDest);
 			}
 		}
+	}
+
+	if (g_oArgs[ARGS_NOERRORS])
+	{
+		RetVal = KErrNone;
 	}
 
 	return(RetVal);
