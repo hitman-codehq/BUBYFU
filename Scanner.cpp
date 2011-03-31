@@ -495,7 +495,7 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 			/* ability to detect files that only exist in the destination directory */
 
 			a_roDestEntries.Remove(DestEntry);
-			delete DestEntry;
+			delete (TEntry *) DestEntry;
 
 			break;
 		}
@@ -617,7 +617,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 				/* ability to detect files that only exist in the destination directory */
 
 				a_roDestEntries.Remove(DestEntry);
-				delete DestEntry;
+				delete (TEntry *) DestEntry;
 			}
 
 			break;
