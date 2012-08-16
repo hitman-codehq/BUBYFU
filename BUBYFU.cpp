@@ -1,6 +1,7 @@
 
 #include <StdFuncs.h>
 #include <Args.h>
+#include <signal.h>
 #include <stdio.h>
 #include "Scanner.h"
 
