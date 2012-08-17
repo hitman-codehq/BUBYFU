@@ -726,18 +726,17 @@ int	RScanner::DeleteFile(const char *a_pccFileName)
 {
 	int RetVal;
 
+	/* Try to delete the file */
+
 	if ((RetVal = BaflUtils::DeleteFile(a_pccFileName)) != KErrNone)
 	{
+		/* Deleting the file failed.  This may be because it is protected from deletion, so try */
+		/* making it deleteable and try again */
 
-#ifndef __amigaos4__
-
-		if ((RetVal = Utils::SetProtection(a_pccFileName, FILE_ATTRIBUTE_NORMAL)) == KErrNone)
+		if ((RetVal = Utils::SetDeleteable(a_pccFileName)) == KErrNone)
 		{
 			RetVal = BaflUtils::DeleteFile(a_pccFileName);
 		}
-
-#endif /* ! __amigaos4__ */
-
 	}
 
 	if (RetVal != KErrNone)
