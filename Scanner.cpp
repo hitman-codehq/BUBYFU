@@ -822,9 +822,12 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 
 		Dir.Close();
 
+		/* The files and subdirectories in the directory have been deleted, so now */
+		/* delete the directory itself */
+
 		if (RetVal == KErrNone)
 		{
-			if ((RetVal = DeleteFile(a_pccPath)) != KErrNone)
+			if ((RetVal = Utils::DeleteDirectory(a_pccPath)) != KErrNone)
 			{
 				Utils::Error("Unable to delete directory \"%s\" (Error = %d)", a_pccPath, RetVal);
 
