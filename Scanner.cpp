@@ -544,27 +544,37 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 		if (Match)
 		{
-			/* Do a special check of the modification time and date. Some file systems (such as ext2 over */
-			/* Samba) are not particularly accurate and their timestamps can be a second out. This is an */
-			/* unfortunately empirical hack but it's required for backing up from AmigaOS SFS => ext2 */
+			/* Only check the modification time if the user has not explicitly disabled */
+			/* the checking */
 
-			ModifiedOk = (a_roEntry.iModified == DestEntry->iModified) ? ETrue : EFalse;
-
-			if (!(ModifiedOk))
+			if (g_oArgs[ARGS_NODATES])
 			{
-				/* Convert the source and destination times to seconds */
+				ModifiedOk = ETrue;
+			}
+			else
+			{
+				/* Do a special check of the modification time and date. Some file systems (such as ext2 over */
+				/* Samba) are not particularly accurate and their timestamps can be a second out. This is an */
+				/* unfortunately empirical hack but it's required for backing up from AmigaOS SFS => ext2 */
 
-				SourceSeconds = ((((a_roEntry.iModified.DateTime().Hour() * 60) + a_roEntry.iModified.DateTime().Minute()) * 60) +
-					a_roEntry.iModified.DateTime().Second());
+				ModifiedOk = (a_roEntry.iModified == DestEntry->iModified) ? ETrue : EFalse;
 
-				DestSeconds = ((((DestEntry->iModified.DateTime().Hour() * 60) + DestEntry->iModified.DateTime().Minute()) * 60) +
-					DestEntry->iModified.DateTime().Second());
-
-				/* And ensure that they are no more than 1 second different */
-
-				if (abs(DestSeconds - SourceSeconds) == 1)
+				if (!(ModifiedOk))
 				{
-					ModifiedOk = true;
+					/* Convert the source and destination times to seconds */
+
+					SourceSeconds = ((((a_roEntry.iModified.DateTime().Hour() * 60) + a_roEntry.iModified.DateTime().Minute()) * 60) +
+						a_roEntry.iModified.DateTime().Second());
+
+					DestSeconds = ((((DestEntry->iModified.DateTime().Hour() * 60) + DestEntry->iModified.DateTime().Minute()) * 60) +
+						DestEntry->iModified.DateTime().Second());
+
+					/* And ensure that they are no more than 1 second different */
+
+					if (abs(DestSeconds - SourceSeconds) == 1)
+					{
+						ModifiedOk = true;
+					}
 				}
 			}
 
