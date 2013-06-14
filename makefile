@@ -1,8 +1,9 @@
 
 CC = @g++
 LD = @g++
-CFLAGS = -c -Wall -Wextra -Wwrite-strings
+CFLAGS = -c -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wextra -Wwrite-strings
 IFLAGS = -I../StdFuncs
+LFLAGS = -fno-asynchronous-unwind-tables -fno-exceptions
 LIBS = -lStdFuncs
 
 ifdef DEBUG
