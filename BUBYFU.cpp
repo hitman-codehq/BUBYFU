@@ -28,7 +28,7 @@ static const struct Resident g_oROMTag __attribute__((used)) =
 /* Template for use in obtaining command line parameters.  Remember to change the indexes */
 /* in Scanner.h if the ordering or number of these change */
 
-static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILTERLIST,COPY/S,DELETE/S,DELETEDIRS/S,NOCASE/S,NODATES/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S,VERBOSE/S";
+static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILTERLIST,COPY/S,DELETE/S,DELETEDIRS/S,FIXDATES/S,FIXPROTECT/S,NOCASE/S,NODATES/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S,VERBOSE/S";
 
 volatile bool g_bBreak;		/* Set to true if when ctrl-c is hit by the user */
 RArgs g_oArgs;				/* Contains the parsed command line arguments */

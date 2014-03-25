@@ -597,7 +597,8 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 						RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
 					}
 
-					/* Otherwise just display information on why the files do not match */
+					/* Otherwise just display information on why the files do not match, possibly */
+					/* repairing their metadata if requested to do so */
 
 					else
 					{
@@ -614,11 +615,39 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 							Utils::TimeToString(SourceDate, SourceTime, a_roEntry);
 							Utils::TimeToString(DestDate, DestTime, *DestEntry);
 
-							printf("%s %s -vs- %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+							/* Set the target file's date and time to match that of the source, if requested */
+
+							if (g_oArgs[ARGS_FIXDATES])
+							{
+								printf("%s %s -> %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+
+								if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) != KErrNone)
+								{
+									Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
+								}
+							}
+							else
+							{
+								printf("%s %s -vs- %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+							}
 						}
 						else
 						{
-							printf("attributes = %x -vs- %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+							/* Set the target file's attributes to match that of the source, if requested */
+
+							if (g_oArgs[ARGS_FIXPROTECT])
+							{
+								printf("attributes %x -> %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+
+								if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
+								{
+									Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
+								}
+							}
+							else
+							{
+								printf("attributes = %x -vs- %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+							}
 						}
 					}
 				}

@@ -11,15 +11,17 @@
 #define ARGS_COPY 3
 #define ARGS_DELETE 4
 #define ARGS_DELETEDIRS 5
-#define ARGS_NOCASE 6
-#define ARGS_NODATES 7
-#define ARGS_NODEST 8
-#define ARGS_NOERRORS 9
-#define ARGS_NOHIDDEN 10
-#define ARGS_NOPROTECT 11
-#define ARGS_NORECURSE 12
-#define ARGS_VERBOSE 13
-#define ARGS_NUM_ARGS 14
+#define ARGS_FIXDATES 6
+#define ARGS_FIXPROTECT 7
+#define ARGS_NOCASE 8
+#define ARGS_NODATES 9
+#define ARGS_NODEST 10
+#define ARGS_NOERRORS 11
+#define ARGS_NOHIDDEN 12
+#define ARGS_NOPROTECT 13
+#define ARGS_NORECURSE 14
+#define ARGS_VERBOSE 15
+#define ARGS_NUM_ARGS 16
 
 /* Forward declarations */
 
