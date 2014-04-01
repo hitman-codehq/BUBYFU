@@ -249,38 +249,43 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 bool RScanner::CheckFilterList(const char *a_pccFileName)
 {
 	bool RetVal;
-	const char *Extension, *SourceExtension;
+	const char *FileName;
 	TFilter *Filter;
 
 	/* Assume the file is not on the filter list */
 
 	RetVal = false;
 
-	/* See if the filename contains an extension and if so, iterate through the list of file filter */
-	/* wildcards and see if there is a match */
+	/* Get the name of the file part of the path */
 
-	if ((SourceExtension = Utils::Extension(a_pccFileName)) != NULL)
+	FileName = Utils::FilePart(a_pccFileName);
+
+	/* Iterate through the list of file filters and see if there is a match */
+
+	if ((Filter = m_oFiles.GetHead()) != NULL)
 	{
-		if ((Filter = m_oFiles.GetHead()) != NULL)
+		do
 		{
-			do
+			/* Perform a wildcard match of the file filter on the file name */
+
+			RWildcard Wildcard;
+
+			if (Wildcard.Open(Filter->m_pccName) == KErrNone)
 			{
-				/* Extract the extension of the current filter wildcard */
+				/* If the file matches the file filter then we want to bail out and not copy */
+				/* the file */
 
-				if ((Extension = Utils::Extension(Filter->m_pccName)) != NULL)
+				if (Wildcard.Match(FileName))
 				{
-					/* If this matches the current file then bail out and don't copy the file */
+					RetVal = true;
 
-					if (strcmp(Extension, SourceExtension) == 0)
-					{
-						RetVal = true;
-
-						break;
-					}
+					break;
 				}
+
+				Wildcard.Close();
 			}
-			while ((Filter = m_oFiles.GetSucc(Filter)) != NULL);
 		}
+		while ((Filter = m_oFiles.GetSucc(Filter)) != NULL);
 	}
 
 	return(RetVal);
@@ -638,6 +643,10 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 				a_roDestEntries.Remove(DestEntry);
 				delete (TEntry *) DestEntry;
 			}
+			else
+			{
+				if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pccSource);
+			}
 
 			break;
 		}
@@ -666,6 +675,10 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 			{
 				printf("File \"%s\" does not exist\n", a_pccDest);
 			}
+		}
+		else
+		{
+			if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pccSource);
 		}
 	}
 
