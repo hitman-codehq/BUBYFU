@@ -13,12 +13,6 @@
 extern volatile bool g_bBreak;	/* Set to true if when ctrl-c is hit by the user */
 extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 
-// TODO: CAW - Comment entire file
-// TODO: CAW - Think about how to handle links
-// TODO: CAW - Look into the use of NOERRORS + this breaks ctrl-c + are files left open after ctrl-c?
-// TODO: CAW - Add proper support for wildcards for both directories and files & remove USE_MULTI_DIRS
-#define USE_MULTI_DIRS
-
 /* # of bytes to read and write when copying files */
 
 #define BUFFER_SIZE (1024 * 1024)
@@ -105,16 +99,12 @@ void RScanner::Close()
 {
 	TFilter *Filter;
 
-#ifdef USE_MULTI_DIRS
-
 	/* Iterate through the items in the path filter list and delete them */
 
 	while ((Filter = m_oPaths.RemHead()) != NULL)
 	{
 		delete Filter;
 	}
-
-#endif // USE_MULTI_DIRS
 
 	/* Iterate through the items in the directory filter list and delete them */
 
@@ -200,9 +190,6 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 			{
 				if (!(a_bInclusion))
 				{
-
-#ifdef USE_MULTI_DIRS
-
 					for (Index = 0; Index < Length; ++Index)
 					{
 						if (a_pcLine[Index] == '/')
@@ -211,26 +198,19 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 						}
 					}
 
-#endif // USE_MULTI_DIRS
-
 					/* First, remove the trailing '/' that is appended to the directory name to be filtered */
 
 					a_pcLine[Length - 1] = '\0';
 
-					/* And add it to the directory list */
+					/* And add it to the directory or path list as appropriate */
 
 					strcpy(Path, a_pcLine);
-
-#ifdef USE_MULTI_DIRS
 
 					if (NumSlashes >= 2)
 					{
 						m_oPaths.AddTail(Filter);
 					}
 					else
-
-#endif // USE_MULTI_DIRS
-
 					{
 						m_oDirectories.AddTail(Filter);
 					}
@@ -1001,6 +981,8 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 						InclusionsOnly = true;
 					}
+
+					break;
 				}
 
 				Wildcard.Close();
@@ -1009,45 +991,48 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 		while ((Filter = m_oDirectories.GetSucc(Filter)) != NULL);
 	}
 
-#ifdef USE_MULTI_DIRS
+	/* Now iterate through the list of path filters and see if there is a match for the source directory. */
+	/* Only do this if we have not already found an entry in the directory filter list */
 
-	// TODO: CAW - Make this a function and use it above
-	if ((Filter = m_oPaths.GetHead()) != NULL)
+	if (!(Filter))
 	{
-		do
+		if ((Filter = m_oPaths.GetHead()) != NULL)
 		{
-			/* Perform a wildcard match of the directory filter on the directory name */
-
-			RWildcard Wildcard;
-
-			if (Wildcard.Open(Filter->m_pccName) == KErrNone)
+			do
 			{
-				/* If the directory matches the directory filter then we want to bail out and not copy */
-				/* the directory, unless the filter also contains an inclusion filter */
+				/* Perform a wildcard match of the directory filter on the directory name */
 
-				if (Wildcard.Match(a_pcSource))
+				RWildcard Wildcard;
+
+				if (Wildcard.Open(Filter->m_pccName) == KErrNone)
 				{
-					if (Filter->m_oFilters.GetHead() == NULL)
-					{
-						if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
+					/* If the directory matches the directory filter then we want to bail out and not copy */
+					/* the directory, unless the filter also contains an inclusion filter */
 
-						CopyDir = false;
-					}
-					else
+					if (Wildcard.Match(a_pcSource))
 					{
-						if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
+						if (Filter->m_oFilters.GetHead() == NULL)
+						{
+							if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
 
-						InclusionsOnly = true;
+							CopyDir = false;
+						}
+						else
+						{
+							if (g_oArgs[ARGS_VERBOSE]) printf("Copying %s with inclusions\n", a_pcSource);
+
+							InclusionsOnly = true;
+						}
+
+						break;
 					}
+
+					Wildcard.Close();
 				}
-
-				Wildcard.Close();
 			}
+			while ((Filter = m_oPaths.GetSucc(Filter)) != NULL);
 		}
-		while ((Filter = m_oPaths.GetSucc(Filter)) != NULL);
 	}
-
-#endif // USE_MULTI_DIRS
 
 	/* Copy the directory if required */
 
