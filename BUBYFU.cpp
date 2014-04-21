@@ -37,7 +37,7 @@ RArgs g_oArgs;				/* Contains the parsed command line arguments */
 
 static void SignalHandler(int /*a_iSignal*/)
 {
-	/* Indicate that ctrl-c has been hit so that the scanning routine drops out */
+	/* Signal that ctrl-c has been pressed so that we break out of the scanning routine */
 
 	g_bBreak = true;
 }
