@@ -880,7 +880,6 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 
 /* Written: Tuesday 29-Dec-2009 9:58 am */
 
-// TODO: CAW - Make a test case for this.  '\\' is no longer required
 char *RScanner::ExtractDirectory(char *a_pcPath)
 {
 	char *RetVal;
@@ -890,17 +889,16 @@ char *RScanner::ExtractDirectory(char *a_pcPath)
 
 	RetVal = a_pcPath;
 
-	/* If the path starts with a '\' or '/' then we want to skip it rather than return an empty */
-	/* string */
+	/* If the path starts with a '/' then we want to skip it rather than return an empty string */
 
-	if ((*a_pcPath != '/') || (*a_pcPath != '\\'))
+	if (*a_pcPath != '/')
 	{
 		++a_pcPath;
 	}
 
 	/* Find the next path separator or the end of the path */
 
-	while ((*a_pcPath) && (*a_pcPath != '/') && (*a_pcPath != '\\'))
+	while ((*a_pcPath) && (*a_pcPath != '/'))
 	{
 		++a_pcPath;
 	}
