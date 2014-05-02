@@ -752,8 +752,6 @@ int RScanner::CreateDirectoryTree(char *a_pcPath)
 
 /* Written: Friday 02-Jan-2009 8:50 pm */
 
-// TODO: CAW - This is bodgey as it is Windows specific + should reset attributes on new file to match
-//             those of old file.  Windows stuff should be in StdFuncs - check Cleaner & ls as well
 int	RScanner::DeleteFile(const char *a_pccFileName)
 {
 	int RetVal;
