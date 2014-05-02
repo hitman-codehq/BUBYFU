@@ -3,6 +3,7 @@
 #include <Args.h>
 #include <signal.h>
 #include <stdio.h>
+#include <string.h>
 #include "Scanner.h"
 
 #ifdef __amigaos4__
@@ -49,7 +50,7 @@ static void SignalHandler(int /*a_iSignal*/)
 int main(int a_iArgC, const char *a_ppcArgV[])
 {
 	char *Source, *Dest;
-	int Result;
+	TInt Length, Result;
 	RScanner Scanner;
 
 	/* Install a ctrl-c handler so we can handle ctrl-c being pressed and shut down the scan */
@@ -79,6 +80,22 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 
 				Utils::NormalisePath(Source);
 				Utils::NormalisePath(Dest);
+
+				/* Strip any trailing '/' separators, so that calls to Utils::GetFileInfo() do not fail */
+
+				Length = strlen(Source);
+
+				if ((Length > 0) && (Source[Length - 1] == '/'))
+				{
+					Source[Length - 1] = '\0';
+				}
+
+				Length = strlen(Dest);
+
+				if ((Length > 0) && (Dest[Length - 1] == '/'))
+				{
+					Dest[Length - 1] = '\0';
+				}
 
 				Result = Scanner.Scan(Source, Dest);
 			}
