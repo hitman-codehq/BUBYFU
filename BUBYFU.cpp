@@ -23,6 +23,10 @@ static const struct Resident g_oROMTag __attribute__((used)) =
 	NULL
 };
 
+/* Use a large stack, as copying is highly recursive and can use a lot of stack space */
+
+static const char __attribute__((used)) g_accStackCookie[] = "$STACK:262144";
+
 #endif /* __amigaos4__ */
 
 /* Template for use in obtaining command line parameters.  Remember to change the indexes */
