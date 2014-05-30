@@ -2,6 +2,8 @@
 #ifndef SCANNER_H
 #define SCANNER_H
 
+#include <StdCRC.h>
+
 /* Definitions of the number of arguments that can be passed in and their offsets in the */
 /* argument array */
 
@@ -9,19 +11,20 @@
 #define ARGS_DEST 1
 #define ARGS_FILTERLIST 2
 #define ARGS_COPY 3
-#define ARGS_DELETE 4
-#define ARGS_DELETEDIRS 5
-#define ARGS_FIXDATES 6
-#define ARGS_FIXPROTECT 7
-#define ARGS_NOCASE 8
-#define ARGS_NODATES 9
-#define ARGS_NODEST 10
-#define ARGS_NOERRORS 11
-#define ARGS_NOHIDDEN 12
-#define ARGS_NOPROTECT 13
-#define ARGS_NORECURSE 14
-#define ARGS_VERBOSE 15
-#define ARGS_NUM_ARGS 16
+#define ARGS_CRC 4
+#define ARGS_DELETE 5
+#define ARGS_DELETEDIRS 6
+#define ARGS_FIXDATES 7
+#define ARGS_FIXPROTECT 8
+#define ARGS_NOCASE 9
+#define ARGS_NODATES 10
+#define ARGS_NODEST 11
+#define ARGS_NOERRORS 12
+#define ARGS_NOHIDDEN 13
+#define ARGS_NOPROTECT 14
+#define ARGS_NORECURSE 15
+#define ARGS_VERBOSE 16
+#define ARGS_NUM_ARGS 17
 
 /* Forward declarations */
 
@@ -72,11 +75,14 @@ private:
 	StdList<TFilter>	m_oDirectories;		/* List of directories to be filtered out */
 	StdList<TFilter>	m_oFiles;			/* List of files to be filtered out */
 	StdList<TFilter>	m_oPaths;			/* List of paths to be filtered out */
+	RCRC				m_oCRC;				/* Class with which to generate CRC values */
 	TFilter				*m_poLastFilter;	/* Ptr to last directory filter, if any */
 
 private:
 
 	int AddFilter(char *a_pcLine, bool a_bInclusion);
+
+	int CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a_puiSourceCRC, TUint *a_puiDestCRC);
 
 	bool CheckFilterList(const char *a_pccFileName);
 

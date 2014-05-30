@@ -26,6 +26,10 @@ int RScanner::Open()
 	const char *FilterListName;
 	int RetVal;
 
+	/* Initialise the CRC class's lookup tables */
+
+	m_oCRC.Init();
+
 	/* If the name of a file to use as the filter list has been passed in then open and parse it */
 
 	if ((FilterListName = g_oArgs[ARGS_FILTERLIST]) != NULL)
@@ -239,6 +243,68 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 	else
 	{
 		Utils::Error("Out of memory");
+	}
+
+	return(RetVal);
+}
+
+/**
+ * Calculates the CRC of two files and determines whether they match.
+ * This function will parse two files and will calculate the CRC of both, to determine whether
+ * they are a binary match.  It returns whether the files match and also the calculated CRC values.
+ *
+ * @date    Saturday 17-May-2014 11:16 am, Code HQ Ehinger Tor
+ * @param	a_pccSource		Ptr to the name of the source file to be checked
+ * @param	a_pccDest		Ptr to the name of the destination file to be checked
+ * @param	a_puiSourceCRC	Ptr to a variable into which to return the CRC of the source file
+ * @param	a_puiDestCRC	Ptr to a variable into which to return the CRC of the destination file
+ * @return	KErrNone if the CRCs of the two files match
+ * @return	KErrCorrupt if the CRCs of the two files do not match
+ * @return	KErrNotFound if either the source or the destination files could not be opened
+ * @return	Otherwise any of the errors returned by Utils::LoadFile()
+ */
+
+int RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a_puiSourceCRC, TUint *a_puiDestCRC)
+{
+	unsigned char *Source, *Dest;
+	TInt RetVal, SourceResult, DestResult;
+	TUint SourceCRC, DestCRC;
+
+	RetVal = SourceResult = Utils::LoadFile(a_pccSource, &Source);
+
+	if (SourceResult >= 0)
+	{
+		RetVal = DestResult = Utils::LoadFile(a_pccDest, &Dest);
+
+		if (DestResult >= 0)
+		{
+			SourceCRC = m_oCRC.CRC32(Source, SourceResult);
+			DestCRC = m_oCRC.CRC32(Dest, DestResult);
+
+			*a_puiSourceCRC = SourceCRC;
+			*a_puiDestCRC = DestCRC;
+
+			if (SourceCRC == DestCRC)
+			{
+				RetVal = KErrNone;
+			}
+			else
+			{
+				RetVal = KErrCorrupt;
+			}
+
+			delete[] Dest;
+		}
+		else
+		{
+			Utils::Error("Unable to load destination file \"%s\" (Error %d)", a_pccDest, RetVal);
+		}
+
+		delete[] Source;
+	}
+	else
+	{
+		Utils::Error("Unable to load source file \"%s\" (Error %d)", a_pccSource, RetVal);
 	}
 
 	return(RetVal);
@@ -500,8 +566,9 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 
 int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry, TEntryArray &a_roDestEntries)
 {
-	bool Match, ModifiedOk;
+	bool CRCOk, Match, ModifiedOk;
 	int SourceSeconds, DestSeconds, RetVal;
+	TUint SourceCRC, DestCRC;
 	const TEntry *DestEntry;
 
 	/* Assume success */
@@ -563,89 +630,121 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 				}
 			}
 
-			/* Only copy the file or print a message if the file is not on the filter list */
+			/* If the user has asked to check the CRC then do that now.  Otherwise just pretend that the CRC is valid */
 
-			if (!(CheckFilterList(a_pccSource)))
+			SourceCRC = DestCRC = NULL;
+			CRCOk = true;
+
+			if (g_oArgs[ARGS_CRC])
 			{
-				/* If the source and destination files are different sizes, or their modification times are */
-				/* different, or their attributes are different and the user has not specified the NOPROTECT */
-				/* command line option, then the two files are classified as not matching and must be either */
-				/* copied or at least information printed about them */
+				/* Calculate the CRCs of the source and destination files */
 
-				if ((a_roEntry.iSize != DestEntry->iSize) || (!(ModifiedOk)) ||
-					((!(g_oArgs[ARGS_NOPROTECT])) && (a_roEntry.iAttributes != DestEntry->iAttributes)))
+				RetVal = CheckCRC(a_pccSource, a_pccDest, &SourceCRC, &DestCRC);
+
+				/* If the CRCs match or if they don't match then this is considered a valid result so indicate this. */
+				/* Any other return value from CheckCRC() is considered an error and will halt processing */
+
+				if (RetVal == KErrNone)
 				{
-					/* If the user has specified the COPY command line option then copy the file now */
+					CRCOk = true;
+				}
+				else if (RetVal == KErrCorrupt)
+				{
+					RetVal = KErrNone;
+					CRCOk = false;
+				}
+			}
 
-					if (g_oArgs[ARGS_COPY])
+			if (RetVal == KErrNone)
+			{
+				/* Only copy the file or print a message if the file is not on the filter list */
+
+				if (!(CheckFilterList(a_pccSource)))
+				{
+					/* If the source and destination files are different sizes, or their modification times are */
+					/* different, or their attributes are different and the user has not specified the NOPROTECT */
+					/* command line option, then the two files are classified as not matching and must be either */
+					/* copied or at least information printed about them */
+
+					if ((a_roEntry.iSize != DestEntry->iSize) || (!(ModifiedOk)) || (!(CRCOk)) ||
+						((!(g_oArgs[ARGS_NOPROTECT])) && (a_roEntry.iAttributes != DestEntry->iAttributes)))
 					{
-						RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
-					}
+						/* If the user has specified the COPY command line option then copy the file now */
 
-					/* Otherwise just display information on why the files do not match, possibly */
-					/* repairing their metadata if requested to do so */
-
-					else
-					{
-						printf("File \"%s\" does not match: ", a_pccSource);
-
-						if (a_roEntry.iSize != DestEntry->iSize)
+						if (g_oArgs[ARGS_COPY])
 						{
-							printf("size = %d -vs- %d\n", a_roEntry.iSize, DestEntry->iSize);
+							RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
 						}
-						else if (!(ModifiedOk))
-						{
-							char SourceDate[20], SourceTime[20], DestDate[20], DestTime[20];
 
-							Utils::TimeToString(SourceDate, SourceTime, a_roEntry);
-							Utils::TimeToString(DestDate, DestTime, *DestEntry);
+						/* Otherwise just display information on why the files do not match, possibly */
+						/* repairing their metadata if requested to do so */
 
-							/* Set the target file's date and time to match that of the source, if requested */
-
-							if (g_oArgs[ARGS_FIXDATES])
-							{
-								printf("%s %s -> %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
-
-								if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) != KErrNone)
-								{
-									Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
-								}
-							}
-							else
-							{
-								printf("%s %s -vs- %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
-							}
-						}
 						else
 						{
-							/* Set the target file's attributes to match that of the source, if requested */
+							printf("File \"%s\" does not match: ", a_pccSource);
 
-							if (g_oArgs[ARGS_FIXPROTECT])
+							if (a_roEntry.iSize != DestEntry->iSize)
 							{
-								printf("attributes %x -> %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+								printf("size = %d -vs- %d\n", a_roEntry.iSize, DestEntry->iSize);
+							}
+							else if (!(ModifiedOk))
+							{
+								char SourceDate[20], SourceTime[20], DestDate[20], DestTime[20];
 
-								if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
+								Utils::TimeToString(SourceDate, SourceTime, a_roEntry);
+								Utils::TimeToString(DestDate, DestTime, *DestEntry);
+
+								/* Set the target file's date and time to match that of the source, if requested */
+
+								if (g_oArgs[ARGS_FIXDATES])
 								{
-									Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
+									printf("%s %s -> %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+
+									if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) != KErrNone)
+									{
+										Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
+									}
 								}
+								else
+								{
+									printf("%s %s -vs- %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+								}
+							}
+							else if (!(CRCOk))
+							{
+								printf("CRC = %x -vs- %x\n", SourceCRC, DestCRC);
 							}
 							else
 							{
-								printf("attributes = %x -vs- %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+								/* Set the target file's attributes to match that of the source, if requested */
+
+								if (g_oArgs[ARGS_FIXPROTECT])
+								{
+									printf("attributes %x -> %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+
+									if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
+									{
+										Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
+									}
+								}
+								else
+								{
+									printf("attributes = %x -vs- %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
+								}
 							}
 						}
 					}
+
+					/* Remove the entry from the destination list to speed up future searches and facilitate the */
+					/* ability to detect files that only exist in the destination directory */
+
+					a_roDestEntries.Remove(DestEntry);
+					delete (TEntry *)DestEntry;
 				}
-
-				/* Remove the entry from the destination list to speed up future searches and facilitate the */
-				/* ability to detect files that only exist in the destination directory */
-
-				a_roDestEntries.Remove(DestEntry);
-				delete (TEntry *) DestEntry;
-			}
-			else
-			{
-				if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pccSource);
+				else
+				{
+					if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pccSource);
+				}
 			}
 
 			break;
