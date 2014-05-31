@@ -632,7 +632,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 			/* If the user has asked to check the CRC then do that now.  Otherwise just pretend that the CRC is valid */
 
-			SourceCRC = DestCRC = NULL;
+			SourceCRC = DestCRC = 0;
 			CRCOk = true;
 
 			if (g_oArgs[ARGS_CRC])
