@@ -988,7 +988,7 @@ char *RScanner::ExtractDirectory(char *a_pcPath)
 
 	/* If the path starts with a '/' then we want to skip it rather than return an empty string */
 
-	if (*a_pcPath != '/')
+	if (*a_pcPath == '/')
 	{
 		++a_pcPath;
 	}
