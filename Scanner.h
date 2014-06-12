@@ -82,7 +82,7 @@ private:
 
 	int AddFilter(char *a_pcLine, bool a_bInclusion);
 
-	int CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a_puiSourceCRC, TUint *a_puiDestCRC);
+	TInt CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a_puiSourceCRC, TUint *a_puiDestCRC);
 
 	bool CheckFilterList(const char *a_pccFileName);
 

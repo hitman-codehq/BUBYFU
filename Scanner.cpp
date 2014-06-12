@@ -252,6 +252,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
  * Calculates the CRC of two files and determines whether they match.
  * This function will parse two files and will calculate the CRC of both, to determine whether
  * they are a binary match.  It returns whether the files match and also the calculated CRC values.
+ * If any error occurs (apart from the CRC values not matching), the returned CRC values will set to 0.
  *
  * @date    Saturday 17-May-2014 11:16 am, Code HQ Ehinger Tor
  * @param	a_pccSource		Ptr to the name of the source file to be checked
@@ -261,50 +262,102 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
  * @return	KErrNone if the CRCs of the two files match
  * @return	KErrCorrupt if the CRCs of the two files do not match
  * @return	KErrNotFound if either the source or the destination files could not be opened
- * @return	Otherwise any of the errors returned by Utils::LoadFile()
+ * @return	Otherwise any of the errors returned by RFile::Open() or RFile::Read()
  */
 
-int RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a_puiSourceCRC, TUint *a_puiDestCRC)
+TInt RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a_puiSourceCRC, TUint *a_puiDestCRC)
 {
 	unsigned char *Source, *Dest;
-	TInt RetVal, SourceResult, DestResult;
+	TInt RetVal, SourceSize, DestSize;
 	TUint SourceCRC, DestCRC;
+	RFile SourceFile, DestFile;
 
-	RetVal = SourceResult = Utils::LoadFile(a_pccSource, &Source);
+	SourceCRC = DestCRC = 0;
+	*a_puiSourceCRC = *a_puiDestCRC = 0;
 
-	if (SourceResult >= 0)
+	/* Open the source and destination files which need to have their CRCs checked */
+
+	if ((RetVal = SourceFile.Open(a_pccSource, EFileRead)) == KErrNone)
 	{
-		RetVal = DestResult = Utils::LoadFile(a_pccDest, &Dest);
-
-		if (DestResult >= 0)
+		if ((RetVal = DestFile.Open(a_pccDest, EFileRead)) == KErrNone)
 		{
-			SourceCRC = m_oCRC.CRC32(Source, SourceResult);
-			DestCRC = m_oCRC.CRC32(Dest, DestResult);
+			/* Allocate two large buffers into which chunks of the source and destination files can be read */
 
-			*a_puiSourceCRC = SourceCRC;
-			*a_puiDestCRC = DestCRC;
+			Source = new unsigned char[BUFFER_SIZE];
+			Dest = new unsigned char[BUFFER_SIZE];
 
-			if (SourceCRC == DestCRC)
+			if ((Source) && (Dest))
 			{
-				RetVal = KErrNone;
+				/* Loop around and read the two files in, in chunks of BUFFER_SIZE, incrementally calculating their CRCs. */
+				/* Stop when the entire file has been read in and checked or if an error occurs */
+
+				do
+				{
+					SourceSize = SourceFile.Read(Source, BUFFER_SIZE);
+
+					if (SourceSize > 0)
+					{
+						if ((DestSize = DestFile.Read(Dest, SourceSize)) == SourceSize)
+						{
+							/* Incrementally calculate the two CRCs, based on the CRC of the previous chunk */
+
+							SourceCRC = m_oCRC.CRC32(SourceCRC, Source, SourceSize);
+							DestCRC = m_oCRC.CRC32(DestCRC, Dest, DestSize);
+						}
+						else
+						{
+							/* If the amount read from the destination file read was less than what was requested, then we */
+							/* have hit the end of the file so return this fact.  Otherwise return whatever error was returned */
+							/* from RFile::Read() */
+
+							RetVal = (DestSize >= 0) ? KErrGeneral : DestSize;
+
+							Utils::Error("Unable to read from file \"%s\" (Error %d)", a_pccDest, RetVal);
+						}
+					}
+					else if (SourceSize < 0)
+					{
+						RetVal = SourceSize;
+
+						Utils::Error("Unable to read from file \"%s\" (Error %d)", a_pccSource, RetVal);
+					}
+				}
+				while ((SourceSize > 0) && (RetVal == KErrNone));
+
+				/* If the CRCs were calculated successfully then return whether they match, and also return the CRCs themselves */
+
+				if (RetVal == KErrNone)
+				{
+					if (SourceCRC != DestCRC)
+					{
+						RetVal = KErrCorrupt;
+					}
+
+					*a_puiSourceCRC = SourceCRC;
+					*a_puiDestCRC = DestCRC;
+				}
 			}
 			else
 			{
-				RetVal = KErrCorrupt;
+				RetVal = KErrNoMemory;
+
+				Utils::Error("Out of memory");
 			}
 
-			delete[] Dest;
+			delete [] Dest;
+			delete [] Source;
+			DestFile.Close();
 		}
 		else
 		{
-			Utils::Error("Unable to load destination file \"%s\" (Error %d)", a_pccDest, RetVal);
+			Utils::Error("Unable to open dest file \"%s\" (Error %d)", a_pccDest, RetVal);
 		}
 
-		delete[] Source;
+		SourceFile.Close();
 	}
 	else
 	{
-		Utils::Error("Unable to load source file \"%s\" (Error %d)", a_pccSource, RetVal);
+		Utils::Error("Unable to open source file \"%s\" (Error %d)", a_pccSource, RetVal);
 	}
 
 	return(RetVal);
