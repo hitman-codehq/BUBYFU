@@ -142,6 +142,10 @@ SOURCE=..\StdFuncs\StdTextFile.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\StdFuncs\StdTime.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\StdFuncs\StdWildcard.h
 # End Source File
 # Begin Source File
