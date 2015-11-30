@@ -22,8 +22,8 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 int RScanner::Open()
 {
 	bool Inclusion;
-	char *Line;
-	const char *FilterListName;
+	char *Line, *LineCopy;
+	const char *FilterListName, *NewLine;
 	int RetVal;
 
 	/* Initialise the CRC class's lookup tables */
@@ -42,40 +42,57 @@ int RScanner::Open()
 		{
 			/* Scan through and extract the lines from the filter list and build the filter lists */
 
-			while ((Line = TextFile.GetLine()) != NULL)
+			while ((NewLine = TextFile.GetLine()) != NULL)
 			{
-				/* Remove white space from the start and end of the string */
+				/* Make a copy of the line returned as the one returned is read only */
 
-				Utils::TrimString(Line);
-
-				/* Normalise the path so it only contains the '/' directory separator */
-
-				Utils::NormalisePath(Line);
-
-				/* Check for a filter */
-
-				if ((*Line == '-') || (*Line == '+'))
+				if ((Line = LineCopy = Utils::DuplicateString(NewLine, -1)) != NULL)
 				{
-					Inclusion = (*Line == '+');
+					/* Remove white space from the start and end of the string */
 
-					/* Skip the '-' and remove and further white space after it */
-
-					++Line;
 					Utils::TrimString(Line);
 
-					/* Append the filter to the filter list */
+					/* Normalise the path so it only contains the '/' directory separator */
 
-					if ((RetVal = AddFilter(Line, Inclusion)) != KErrNone)
+					Utils::NormalisePath(Line);
+
+					/* Check for a filter */
+
+					if ((*Line == '-') || (*Line == '+'))
 					{
-						break;
+						Inclusion = (*Line == '+');
+
+						/* Skip the '-' and remove any further white space after it */
+
+						++Line;
+						Utils::TrimString(Line);
+
+						/* Append the filter to the filter list */
+
+						if ((RetVal = AddFilter(Line, Inclusion)) != KErrNone)
+						{
+							break;
+						}
 					}
+
+					/* Check to see if this is a comment and if not, display an error */
+
+					else if (*Line != '#')
+					{
+						printf("Warning: Unknown filter list entry: %s\n", Line);
+					}
+
+					/* And free the copy of the line */
+
+					delete [] LineCopy;
 				}
-
-				/* Check to see if this is a comment and if not, display an error */
-
-				else if (*Line != '#')
+				else
 				{
-					printf("Warning: Unknown filter list entry: %s\n", Line);
+					RetVal = KErrNoMemory;
+
+					Utils::Error("Unable to duplicate filter list entry");
+
+					break;
 				}
 			}
 
