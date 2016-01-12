@@ -7,8 +7,11 @@
 #include <StdTextFile.h>
 #include <StdWildcard.h>
 #include <stdio.h>
+#include <string>
 #include <string.h>
 #include "Scanner.h"
+
+using namespace std;
 
 extern volatile bool g_bBreak;	/* Set to true if when ctrl-c is hit by the user */
 extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
@@ -531,6 +534,36 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 	return(RetVal);
 }
 
+/**
+ * Copies a file or a link to a destination.
+ * Depending on whether the file system object given is a file or a link, this function will call
+ * the appropriate function to perform a copy of the object.  This is just a convenience function
+ * as both the CopyFile() and CopyLink() functions are quite large and do not belong in a single
+ * function.
+ *
+ * @date	Monday 30-Nov-2015 07:05 am, Code HQ Ehinger Tor
+ * @param	a_pccSource		Pointer to the name of the source file or link
+ * @param	a_pccDest		Pointer to the name of the destination file
+ * @param	a_roEntry		Reference to information about the object to be copied
+ * @return	One of the return values of CopyFile() or CopyLink()
+ */
+
+int RScanner::CopyFileOrLink(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry)
+{
+	int RetVal;
+
+	if (a_roEntry.IsLink())
+	{
+		RetVal = CopyLink(a_pccSource, a_pccDest);
+	}
+	else
+	{
+		RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
+	}
+
+	return(RetVal);
+}
+
 /* Written: Saturday 03-Jan-2009 8:42 am */
 
 int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
@@ -581,6 +614,127 @@ int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
 	{
 		Utils::Error("Unable to create directory \"%s\" (Error = %d)", a_pcDest, RetVal);
 	}
+
+	return(RetVal);
+}
+
+/**
+ * Copies a link to a destination.
+ * This function will create a link in the destination given by a_pccDest that is a
+ * clone of the link given by a_pccSource.  The function will determine the relative
+ * path to the source link and will recreate that relative path on the destination
+ * link, thus allowing links to be recreated on different drives.  For example, if
+ * the source link points to Work:Some/Directory/File.txt and it is being copied to
+ * Ram: then the newly created link will point to Ram:Some/Directory/File.txt.
+ *
+ * This function only handles links where the file being linked to is in the same
+ * directory as the link being linked from.
+ *
+ * @date	Monday 30-Nov-2015 07:10 am, Code HQ Ehinger Tor
+ * @param	a_pccSource		Pointer to the name of the source link
+ * @param	a_pccDest		Pointer to the name of the destination link
+ * @return	KErrNone if successful
+ * @return	KErrGeneral if the link could not be created
+ * @return	KErrNoMemory if not enough memory was available
+ */
+
+int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest)
+{
+	char *ResolvedSourcePath, *ResolvedSourceFile;
+	const char *SourceSlash, *DestSlash, *FileName;
+	int Offset, RetVal;
+	string SourcePath, DestPath, LinkTarget;
+	TEntry Entry;
+
+	/* Assume success */
+
+	RetVal = KErrNone;
+
+	printf("Copying link \"%s\" to \"%s\"\n", a_pccSource, a_pccDest);
+
+	/* Determine the path of the source link, without a trailing '/' */
+
+	SourcePath = a_pccSource;
+	SourceSlash = Utils::FilePart(SourcePath.c_str());
+
+	Offset = (SourceSlash - SourcePath.c_str());
+
+	if ((Offset > 0) && (SourcePath[Offset - 1] == '/'))
+	{
+		--Offset;
+	}
+
+	SourcePath.resize(Offset);
+
+	/* Determine the path of the destination link, without a trailing '/' */
+
+	DestPath = a_pccDest;
+	DestSlash = Utils::FilePart(DestPath.c_str());
+
+	Offset = (DestSlash - DestPath.c_str());
+
+	if ((Offset > 0) && (DestPath[Offset - 1] == '/'))
+	{
+		--Offset;
+	}
+
+	DestPath.resize(Offset);
+
+	/* Now determine the real name and path of the source link;  that is, the name and path of the */
+	/* file that the source link points to.  This will be used for determining the name of the file */
+	/* that the desination link will point to */
+
+	ResolvedSourcePath = Utils::ResolveFileName(SourcePath.c_str());
+	ResolvedSourceFile = Utils::ResolveFileName(a_pccSource);
+
+	if (ResolvedSourcePath && ResolvedSourceFile)
+	{
+		/* Determine the name of the resolved file name */
+
+		FileName = (ResolvedSourceFile + strlen(ResolvedSourcePath));
+
+		/* If the path ends in ':' then it will not be included in the file name so we don't need to */
+		/* worry about it.  If it ends in '/' then it will be at the start of the file name so we need */
+		/* to remove it.  This is because we are handling the paths ourselves in here rather than using */
+		/* a helper function */
+
+		if (*FileName == '/')
+		{
+			++FileName;
+		}
+
+		/* Determine the link target path.  If it is not a volume letter or volume name then append a path */
+		/* separator */
+
+		LinkTarget = DestPath;
+
+		if (LinkTarget[LinkTarget.length() - 1] != ':')
+		{
+			LinkTarget += '/';
+		}
+
+		/* Create a fully qualified destination file name for the link, which will be the destination path */
+		/* that was passed in plus the name of the resolved source file name */
+
+		LinkTarget += FileName;
+
+		/* Creating a link will fail if it already exists so delete it if necessary.  Don't check for its */
+		/* existence first as this is in itself tricky, due to it being a link! */
+
+		DeleteFile(a_pccDest);
+
+		/* And finally after much work, create the link to the destination file */
+
+		printf("  %s => %s\n", a_pccDest, LinkTarget.c_str());
+		RetVal = Utils::MakeLink(a_pccDest, LinkTarget.c_str());
+	}
+	else
+	{
+		RetVal = KErrNoMemory;
+	}
+
+	delete [] ResolvedSourceFile;
+	delete [] ResolvedSourcePath;
 
 	return(RetVal);
 }
@@ -743,7 +897,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 						if (g_oArgs[ARGS_COPY])
 						{
-							RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
+							RetVal = CopyFileOrLink(a_pccSource, a_pccDest, a_roEntry);
 						}
 
 						/* Otherwise just display information on why the files do not match, possibly */
@@ -838,7 +992,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 			if (g_oArgs[ARGS_COPY])
 			{
-				RetVal = CopyFile(a_pccSource, a_pccDest, a_roEntry);
+				RetVal = CopyFileOrLink(a_pccSource, a_pccDest, a_roEntry);
 			}
 			else
 			{
@@ -1229,18 +1383,13 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 						while (Entry)
 						{
-							CheckFile = false;
-
-							if (!(Entry->IsLink()))
+							if (Entry->IsHidden())
 							{
-								if (Entry->IsHidden())
-								{
-									CheckFile = (!(g_oArgs[ARGS_NOHIDDEN]));
-								}
-								else
-								{
-									CheckFile = true;
-								}
+								CheckFile = (!(g_oArgs[ARGS_NOHIDDEN]));
+							}
+							else
+							{
+								CheckFile = true;
 							}
 
 							if (CheckFile)
