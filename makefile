@@ -1,7 +1,7 @@
 
 CC = @g++
 LD = @g++
-CFLAGS = -c -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wextra -Wwrite-strings
+CFLAGS = -c -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wextra -Wwrite-strings -DMUNGWALL_NO_LINE_TRACKING
 IFLAGS = -I../StdFuncs
 LFLAGS = -fno-asynchronous-unwind-tables -fno-exceptions
 LIBS = -lStdFuncs
