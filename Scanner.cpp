@@ -508,7 +508,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 		if (RetVal == KErrNone)
 		{
-			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) == KErrNone)
+			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry, EFalse)) == KErrNone)
 			{
 				if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
 				{
@@ -554,7 +554,7 @@ int RScanner::CopyFileOrLink(const char *a_pccSource, const char *a_pccDest, con
 
 	if (a_roEntry.IsLink())
 	{
-		RetVal = CopyLink(a_pccSource, a_pccDest);
+		RetVal = CopyLink(a_pccSource, a_pccDest, a_roEntry);
 	}
 	else
 	{
@@ -633,17 +633,19 @@ int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
  * @date	Monday 30-Nov-2015 07:10 am, Code HQ Ehinger Tor
  * @param	a_pccSource		Pointer to the name of the source link
  * @param	a_pccDest		Pointer to the name of the destination link
+ * @param	a_roEntry		Reference to information about the object to be copied
  * @return	KErrNone if successful
  * @return	KErrGeneral if the link could not be created
  * @return	KErrNoMemory if not enough memory was available
  */
 
-int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest)
+int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry)
 {
-	char *ResolvedSourcePath, *ResolvedSourceFile;
-	const char *SourceSlash, *DestSlash, *FileName;
-	int Offset, RetVal;
-	string SourcePath, DestPath, LinkTarget;
+	char *ResolvedSourceFile;
+	const char *SourceSlash, *DestSlash;
+	int RetVal;
+	size_t Offset;
+	string SourcePath, DestPath;
 	TEntry Entry;
 
 	/* Assume success */
@@ -684,39 +686,29 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest)
 	/* file that the source link points to.  This will be used for determining the name of the file */
 	/* that the desination link will point to */
 
-	ResolvedSourcePath = Utils::ResolveFileName(SourcePath.c_str());
 	ResolvedSourceFile = Utils::ResolveFileName(a_pccSource);
 
-	if (ResolvedSourcePath && ResolvedSourceFile)
+	if (ResolvedSourceFile)
 	{
-		/* Determine the name of the resolved file name */
+		/* Assuming that the target of the link exists in the same directory as the source link, or */
+		/* below, strip out the path to the source link to obtain the relative path to the target file */
 
-		FileName = (ResolvedSourceFile + strlen(ResolvedSourcePath));
+		string LinkTarget = ResolvedSourceFile;
+
+		if ((Offset = LinkTarget.rfind(SourcePath)) != string::npos)
+		{
+			LinkTarget.erase(0, (Offset + SourcePath.length()));
+		}
 
 		/* If the path ends in ':' then it will not be included in the file name so we don't need to */
 		/* worry about it.  If it ends in '/' then it will be at the start of the file name so we need */
 		/* to remove it.  This is because we are handling the paths ourselves in here rather than using */
 		/* a helper function */
 
-		if (*FileName == '/')
+		if (LinkTarget[0] == '/')
 		{
-			++FileName;
+			LinkTarget.erase(0, 1);
 		}
-
-		/* Determine the link target path.  If it is not a volume letter or volume name then append a path */
-		/* separator */
-
-		LinkTarget = DestPath;
-
-		if (LinkTarget[LinkTarget.length() - 1] != ':')
-		{
-			LinkTarget += '/';
-		}
-
-		/* Create a fully qualified destination file name for the link, which will be the destination path */
-		/* that was passed in plus the name of the resolved source file name */
-
-		LinkTarget += FileName;
 
 		/* Creating a link will fail if it already exists so delete it if necessary.  Don't check for its */
 		/* existence first as this is in itself tricky, due to it being a link! */
@@ -727,6 +719,14 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest)
 
 		printf("  %s => %s\n", a_pccDest, LinkTarget.c_str());
 		RetVal = Utils::MakeLink(a_pccDest, LinkTarget.c_str());
+
+		if (RetVal == KErrNone)
+		{
+			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry, EFalse)) != KErrNone)
+			{
+				Utils::Error("Unable to set datestamp on link \"%s\" (Error %d)", a_pccDest, RetVal);
+			}
+		}
 	}
 	else
 	{
@@ -734,7 +734,6 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest)
 	}
 
 	delete [] ResolvedSourceFile;
-	delete [] ResolvedSourcePath;
 
 	return(RetVal);
 }
@@ -1511,7 +1510,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 												printf("Directory \"%s\" exists only in destination\n", NextDest);
 											}
 										}
-										else if (!(Entry->IsLink()))
+										else
 										{
 											if (g_oArgs[ARGS_DELETE])
 											{

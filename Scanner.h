@@ -90,7 +90,7 @@ private:
 
 	int CopyFileOrLink(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry);
 
-	int CopyLink(const char *a_pccSource, const char *a_pccDest);
+	int CopyLink(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry);
 
 	int CopyDirectory(char *a_pcSource, char *a_pcDest);
 
