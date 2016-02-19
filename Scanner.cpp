@@ -764,7 +764,7 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 
 	while (DestEntry)
 	{
-		if (stricmp(a_roEntry.iName, DestEntry->iName) == 0)
+		if (_stricmp(a_roEntry.iName, DestEntry->iName) == 0)
 		{
 			/* Remove the entry from the destination list to speed up future searches and facilitate the */
 			/* ability to detect files that only exist in the destination directory */
@@ -811,7 +811,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 		if (g_oArgs[ARGS_NOCASE])
 		{
-			Match = (!(stricmp(a_roEntry.iName, DestEntry->iName)));
+			Match = (!(_stricmp(a_roEntry.iName, DestEntry->iName)));
 		}
 		else
 		{
