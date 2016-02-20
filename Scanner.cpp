@@ -641,7 +641,7 @@ int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
 
 int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry)
 {
-	char *ResolvedSourceFile;
+	char *ResolvedSourceFile, *ResolvedSourcePath;
 	const char *SourceSlash, *DestSlash;
 	int RetVal;
 	size_t Offset;
@@ -687,17 +687,19 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 	/* that the desination link will point to */
 
 	ResolvedSourceFile = Utils::ResolveFileName(a_pccSource);
+	ResolvedSourcePath = Utils::ResolveFileName(SourcePath.c_str());
 
-	if (ResolvedSourceFile)
+	if ((ResolvedSourceFile) && (ResolvedSourcePath))
 	{
 		/* Assuming that the target of the link exists in the same directory as the source link, or */
-		/* below, strip out the path to the source link to obtain the relative path to the target file */
+		/* below, strip out the base path to the source link (keeping the relative path) to obtain the */
+		/* relative path to the target file */
 
 		string LinkTarget = ResolvedSourceFile;
 
-		if ((Offset = LinkTarget.rfind(SourcePath)) != string::npos)
+		if ((Offset = LinkTarget.rfind(ResolvedSourcePath)) != string::npos)
 		{
-			LinkTarget.erase(0, (Offset + SourcePath.length()));
+			LinkTarget.erase(0, (Offset + strlen(ResolvedSourcePath)));
 		}
 
 		/* If the path ends in ':' then it will not be included in the file name so we don't need to */
@@ -734,6 +736,7 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 	}
 
 	delete [] ResolvedSourceFile;
+	delete [] ResolvedSourcePath;
 
 	return(RetVal);
 }
