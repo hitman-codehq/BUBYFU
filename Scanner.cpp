@@ -729,6 +729,15 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 				Utils::Error("Unable to set datestamp on link \"%s\" (Error %d)", a_pccDest, RetVal);
 			}
 		}
+		else
+		{
+			Utils::Error("Unable to create link from \"%s\" to \"%s\" (Error %d)", a_pccSource, a_pccDest, RetVal);
+		}
+
+		if (g_oArgs[ARGS_NOERRORS])
+		{
+			RetVal = KErrNone;
+		}
 	}
 	else
 	{
