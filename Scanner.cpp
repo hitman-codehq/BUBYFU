@@ -510,7 +510,35 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 		{
 			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry, EFalse)) == KErrNone)
 			{
-				if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
+				if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) == KErrNone)
+				{
+
+#ifdef WIN32
+
+					/* If requested, set the archive attribute on the source file to indicate that it has been */
+					/* archived.  This attribute exists only on Windows, so to prevent unnecessarily setting the */
+					/* protection bits on onther systems we do this conditionally */
+
+					if (g_oArgs[ARGS_ARCHIVE])
+					{
+						TEntry Entry = a_roEntry;
+
+						/* Clear the archive attribute */
+
+						Entry.ClearArchive();
+
+						/* And write the new protection bits back to the source file */
+
+						if ((RetVal = Utils::SetProtection(a_pccSource, Entry.iAttributes)) != KErrNone)
+						{
+							Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccSource, RetVal);
+						}
+					}
+
+#endif /* WIN32 */
+
+				}
+				else
 				{
 					Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
 				}
