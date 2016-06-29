@@ -759,7 +759,7 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 		}
 		else
 		{
-			Utils::Error("Unable to create link from \"%s\" to \"%s\" (Error %d)", a_pccSource, a_pccDest, RetVal);
+			Utils::Error("Unable to copy link from \"%s\" to \"%s\" (Error %d)", a_pccSource, a_pccDest, RetVal);
 		}
 
 		if (g_oArgs[ARGS_NOERRORS])
