@@ -405,7 +405,7 @@ bool RScanner::CheckFilterList(const char *a_pccFileName)
 	{
 		do
 		{
-			/* Perform a wildcard match of the file filter on the file name */
+			/* Perform a wildcard match of the file filter on the filename */
 
 			RWildcard Wildcard;
 
@@ -730,8 +730,8 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 			LinkTarget.erase(0, (Offset + strlen(ResolvedSourcePath)));
 		}
 
-		/* If the path ends in ':' then it will not be included in the file name so we don't need to */
-		/* worry about it.  If it ends in '/' then it will be at the start of the file name so we need */
+		/* If the path ends in ':' then it will not be included in the filename so we don't need to */
+		/* worry about it.  If it ends in '/' then it will be at the start of the filename so we need */
 		/* to remove it.  This is because we are handling the paths ourselves in here rather than using */
 		/* a helper function */
 
