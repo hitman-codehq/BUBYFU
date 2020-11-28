@@ -22,7 +22,7 @@ extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 
 /* Written: Wednesday 21-Jul-2010 8:38 am */
 
-int RScanner::Open()
+int RScanner::open()
 {
 	bool Inclusion;
 	char *Line, *LineCopy;
@@ -41,7 +41,7 @@ int RScanner::Open()
 
 		/* Read the filter list into memory */
 
-		if ((RetVal = TextFile.Open(FilterListName)) == KErrNone)
+		if ((RetVal = TextFile.open(FilterListName)) == KErrNone)
 		{
 			/* Scan through and extract the lines from the filter list and build the filter lists */
 
@@ -99,7 +99,7 @@ int RScanner::Open()
 				}
 			}
 
-			TextFile.Close();
+			TextFile.close();
 		}
 		else
 		{
@@ -119,27 +119,27 @@ int RScanner::Open()
 
 /* Written: Wednesday 21-Jul-2010 8:40 am */
 
-void RScanner::Close()
+void RScanner::close()
 {
 	TFilter *Filter;
 
 	/* Iterate through the items in the path filter list and delete them */
 
-	while ((Filter = m_oPaths.RemHead()) != NULL)
+	while ((Filter = m_oPaths.remHead()) != NULL)
 	{
 		delete Filter;
 	}
 
 	/* Iterate through the items in the directory filter list and delete them */
 
-	while ((Filter = m_oDirectories.RemHead()) != NULL)
+	while ((Filter = m_oDirectories.remHead()) != NULL)
 	{
 		delete Filter;
 	}
 
 	/* Iterate through the items in the file filter wildcard list and delete them */
 
-	while ((Filter = m_oFiles.RemHead()) != NULL)
+	while ((Filter = m_oFiles.remHead()) != NULL)
 	{
 		delete Filter;
 	}
@@ -177,7 +177,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 
 			/* See if the filter is a filename wildcard and if so add it to the file filter wildcard list */
 
-			FileName = Utils::FilePart(a_pcLine);
+			FileName = Utils::filePart(a_pcLine);
 
 			if (*FileName != '\0')
 			{
@@ -189,7 +189,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 
 					if (m_poLastFilter)
 					{
-						m_poLastFilter->m_oFilters.AddTail(Filter);
+						m_poLastFilter->m_oFilters.addTail(Filter);
 
 						if (g_oArgs[ARGS_VERBOSE]) printf("  Added inclusion filter \"%s\" to directory filter \"%s\"\n", Path, m_poLastFilter->m_pccName);
 					}
@@ -202,7 +202,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 				}
 				else
 				{
-					m_oFiles.AddTail(Filter);
+					m_oFiles.addTail(Filter);
 
 					if (g_oArgs[ARGS_VERBOSE]) printf("Added file filter \"%s\"\n", Path);
 				}
@@ -232,11 +232,11 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 
 					if (NumSlashes >= 2)
 					{
-						m_oPaths.AddTail(Filter);
+						m_oPaths.addTail(Filter);
 					}
 					else
 					{
-						m_oDirectories.AddTail(Filter);
+						m_oDirectories.addTail(Filter);
 					}
 
 					/* And save the ptr to the directory filter so that embedded filters can be added to it l8r */
@@ -282,7 +282,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
  * @return	KErrNone if the CRCs of the two files match
  * @return	KErrCorrupt if the CRCs of the two files do not match
  * @return	KErrNotFound if either the source or the destination files could not be opened
- * @return	Otherwise any of the errors returned by RFile::Open() or RFile::Read()
+ * @return	Otherwise any of the errors returned by RFile::open() or RFile::read()
  */
 
 TInt RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a_puiSourceCRC, TUint *a_puiDestCRC)
@@ -297,9 +297,9 @@ TInt RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a
 
 	/* Open the source and destination files which need to have their CRCs checked */
 
-	if ((RetVal = SourceFile.Open(a_pccSource, EFileRead)) == KErrNone)
+	if ((RetVal = SourceFile.open(a_pccSource, EFileRead)) == KErrNone)
 	{
-		if ((RetVal = DestFile.Open(a_pccDest, EFileRead)) == KErrNone)
+		if ((RetVal = DestFile.open(a_pccDest, EFileRead)) == KErrNone)
 		{
 			/* Allocate two large buffers into which chunks of the source and destination files can be read */
 
@@ -313,11 +313,11 @@ TInt RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a
 
 				do
 				{
-					SourceSize = SourceFile.Read(Source, BUFFER_SIZE);
+					SourceSize = SourceFile.read(Source, BUFFER_SIZE);
 
 					if (SourceSize > 0)
 					{
-						if ((DestSize = DestFile.Read(Dest, SourceSize)) == SourceSize)
+						if ((DestSize = DestFile.read(Dest, SourceSize)) == SourceSize)
 						{
 							/* Incrementally calculate the two CRCs, based on the CRC of the previous chunk */
 
@@ -328,7 +328,7 @@ TInt RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a
 						{
 							/* If the amount read from the destination file read was less than what was requested, then we */
 							/* have hit the end of the file so return this fact.  Otherwise return whatever error was returned */
-							/* from RFile::Read() */
+							/* from RFile::read() */
 
 							RetVal = (DestSize >= 0) ? KErrGeneral : DestSize;
 
@@ -366,14 +366,14 @@ TInt RScanner::CheckCRC(const char *a_pccSource, const char *a_pccDest, TUint *a
 
 			delete [] Dest;
 			delete [] Source;
-			DestFile.Close();
+			DestFile.close();
 		}
 		else
 		{
 			Utils::Error("Unable to open dest file \"%s\" (Error %d)", a_pccDest, RetVal);
 		}
 
-		SourceFile.Close();
+		SourceFile.close();
 	}
 	else
 	{
@@ -397,11 +397,11 @@ bool RScanner::CheckFilterList(const char *a_pccFileName)
 
 	/* Get the name of the file part of the path */
 
-	FileName = Utils::FilePart(a_pccFileName);
+	FileName = Utils::filePart(a_pccFileName);
 
 	/* Iterate through the list of file filters and see if there is a match */
 
-	if ((Filter = m_oFiles.GetHead()) != NULL)
+	if ((Filter = m_oFiles.getHead()) != NULL)
 	{
 		do
 		{
@@ -409,7 +409,7 @@ bool RScanner::CheckFilterList(const char *a_pccFileName)
 
 			RWildcard Wildcard;
 
-			if (Wildcard.Open(Filter->m_pccName) == KErrNone)
+			if (Wildcard.open(Filter->m_pccName) == KErrNone)
 			{
 				/* If the file matches the file filter then we want to bail out and not copy */
 				/* the file */
@@ -421,10 +421,10 @@ bool RScanner::CheckFilterList(const char *a_pccFileName)
 					break;
 				}
 
-				Wildcard.Close();
+				Wildcard.close();
 			}
 		}
-		while ((Filter = m_oFiles.GetSucc(Filter)) != NULL);
+		while ((Filter = m_oFiles.getSucc(Filter)) != NULL);
 	}
 
 	return(RetVal);
@@ -444,13 +444,13 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 	printf("Copying file \"%s\" to \"%s\"\n", a_pccSource, a_pccDest);
 
-	if ((RetVal = SourceFile.Open(a_pccSource, EFileRead)) == KErrNone)
+	if ((RetVal = SourceFile.open(a_pccSource, EFileRead)) == KErrNone)
 	{
 		/* RFile::Create() will fail if a destination file already exists so delete it before trying */
-		/* to create a new one.  RScanner::DeleteFile() will also remove any read only protection bit */
+		/* to create a new one.  RScanner::deleteFile() will also remove any read only protection bit */
 		/* that is set before trying to delete the file */
 
-		if ((RetVal = DeleteFile(a_pccDest)) == KErrNotFound)
+		if ((RetVal = deleteFile(a_pccDest)) == KErrNotFound)
 		{
 			RetVal = KErrNone;
 		}
@@ -463,9 +463,9 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 				{
 					do
 					{
-						if ((RetVal = SourceFile.Read(Buffer, BUFFER_SIZE)) > 0)
+						if ((RetVal = SourceFile.read(Buffer, BUFFER_SIZE)) > 0)
 						{
-							if ((RetVal = DestFile.Write(Buffer, RetVal)) < 0)
+							if ((RetVal = DestFile.write(Buffer, RetVal)) < 0)
 							{
 								Utils::Error("Unable to write to file \"%s\" (Error %d)", a_pccDest, RetVal);
 							}
@@ -489,7 +489,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 					Utils::Error("Out of memory");
 				}
 
-				DestFile.Close();
+				DestFile.close();
 			}
 			else
 			{
@@ -501,16 +501,16 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 			Utils::Error("Unable to delete dest file \"%s\" (Error %d)", a_pccDest, RetVal);
 		}
 
-		SourceFile.Close();
+		SourceFile.close();
 
 		/* If successful, set the date and time and protection bits in the destination file to match those */
 		/* in the source file */
 
 		if (RetVal == KErrNone)
 		{
-			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry, EFalse)) == KErrNone)
+			if ((RetVal = Utils::setFileDate(a_pccDest, a_roEntry, EFalse)) == KErrNone)
 			{
-				if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) == KErrNone)
+				if ((RetVal = Utils::setProtection(a_pccDest, a_roEntry.iAttributes)) == KErrNone)
 				{
 
 #ifdef WIN32
@@ -529,7 +529,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 						/* And write the new protection bits back to the source file */
 
-						if ((RetVal = Utils::SetProtection(a_pccSource, Entry.iAttributes)) != KErrNone)
+						if ((RetVal = Utils::setProtection(a_pccSource, Entry.iAttributes)) != KErrNone)
 						{
 							Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccSource, RetVal);
 						}
@@ -622,7 +622,7 @@ int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
 
 				if ((RetVal = Utils::GetFileInfo(a_pcSource, &Entry)) == KErrNone)
 				{
-					if ((RetVal = Utils::SetFileDate(a_pcDest, Entry)) != KErrNone)
+					if ((RetVal = Utils::setFileDate(a_pcDest, Entry)) != KErrNone)
 					{
 						Utils::Error("Unable to set file information for directory \"%s\" (Error = %d)", a_pcDest, RetVal);
 					}
@@ -685,7 +685,7 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 	/* Determine the path of the source link, without a trailing '/' */
 
 	SourcePath = a_pccSource;
-	SourceSlash = Utils::FilePart(SourcePath.c_str());
+	SourceSlash = Utils::filePart(SourcePath.c_str());
 
 	Offset = (SourceSlash - SourcePath.c_str());
 
@@ -699,7 +699,7 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 	/* Determine the path of the destination link, without a trailing '/' */
 
 	DestPath = a_pccDest;
-	DestSlash = Utils::FilePart(DestPath.c_str());
+	DestSlash = Utils::filePart(DestPath.c_str());
 
 	Offset = (DestSlash - DestPath.c_str());
 
@@ -743,16 +743,16 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 		/* Creating a link will fail if it already exists so delete it if necessary.  Don't check for its */
 		/* existence first as this is in itself tricky, due to it being a link! */
 
-		DeleteFile(a_pccDest);
+		deleteFile(a_pccDest);
 
 		/* And finally after much work, create the link to the destination file */
 
 		printf("  %s => %s\n", a_pccDest, LinkTarget.c_str());
-		RetVal = Utils::MakeLink(a_pccDest, LinkTarget.c_str());
+		RetVal = Utils::makeLink(a_pccDest, LinkTarget.c_str());
 
 		if (RetVal == KErrNone)
 		{
-			if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry, EFalse)) != KErrNone)
+			if ((RetVal = Utils::setFileDate(a_pccDest, a_roEntry, EFalse)) != KErrNone)
 			{
 				Utils::Error("Unable to set datestamp on link \"%s\" (Error %d)", a_pccDest, RetVal);
 			}
@@ -799,7 +799,7 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 
 	/* Iterate through the destination list and find the directory we have just mirrored into */
 
-	DestEntry = a_roDestEntries.GetHead();
+	DestEntry = a_roDestEntries.getHead();
 
 	while (DestEntry)
 	{
@@ -808,13 +808,13 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 			/* Remove the entry from the destination list to speed up future searches and facilitate the */
 			/* ability to detect files that only exist in the destination directory */
 
-			a_roDestEntries.Remove(DestEntry);
+			a_roDestEntries.remove(DestEntry);
 			delete (TEntry *) DestEntry;
 
 			break;
 		}
 
-		DestEntry = a_roDestEntries.GetSucc(DestEntry);
+		DestEntry = a_roDestEntries.getSucc(DestEntry);
 	}
 
 	if (g_oArgs[ARGS_NOERRORS])
@@ -841,7 +841,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 	/* Iterate through the entries in the destination directory and see if the source file already */
 	/* exists and has the identical propereties */
 
-	DestEntry = a_roDestEntries.GetHead();
+	DestEntry = a_roDestEntries.getHead();
 
 	while (DestEntry)
 	{
@@ -963,7 +963,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 								{
 									printf("%s %s -> %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
 
-									if ((RetVal = Utils::SetFileDate(a_pccDest, a_roEntry)) != KErrNone)
+									if ((RetVal = Utils::setFileDate(a_pccDest, a_roEntry)) != KErrNone)
 									{
 										Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
 									}
@@ -985,7 +985,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 								{
 									printf("attributes %x -> %x\n", a_roEntry.iAttributes, DestEntry->iAttributes);
 
-									if ((RetVal = Utils::SetProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
+									if ((RetVal = Utils::setProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
 									{
 										Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
 									}
@@ -1001,8 +1001,8 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 					/* Remove the entry from the destination list to speed up future searches and facilitate the */
 					/* ability to detect files that only exist in the destination directory */
 
-					a_roDestEntries.Remove(DestEntry);
-					delete (TEntry *)DestEntry;
+					a_roDestEntries.remove(DestEntry);
+					delete (TEntry *) DestEntry;
 				}
 				else
 				{
@@ -1015,7 +1015,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 		/* Get the nest destination entry */
 
-		DestEntry = a_roDestEntries.GetSucc(DestEntry);
+		DestEntry = a_roDestEntries.getSucc(DestEntry);
 	}
 
 	/* If we have reached the end of the destination filter list without finding a match then the file */
@@ -1114,20 +1114,20 @@ int RScanner::CreateDirectoryTree(char *a_pcPath)
 
 /* Written: Friday 02-Jan-2009 8:50 pm */
 
-int	RScanner::DeleteFile(const char *a_pccFileName)
+int	RScanner::deleteFile(const char *a_pccFileName)
 {
 	int RetVal;
 
 	/* Try to delete the file */
 
-	if ((RetVal = BaflUtils::DeleteFile(a_pccFileName)) != KErrNone)
+	if ((RetVal = BaflUtils::deleteFile(a_pccFileName)) != KErrNone)
 	{
 		/* Deleting the file failed.  This may be because it is protected from deletion, so try */
 		/* making it deleteable and try again */
 
 		if ((RetVal = Utils::SetDeleteable(a_pccFileName)) == KErrNone)
 		{
-			RetVal = BaflUtils::DeleteFile(a_pccFileName);
+			RetVal = BaflUtils::deleteFile(a_pccFileName);
 		}
 	}
 
@@ -1152,12 +1152,12 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 	const TEntry *Entry;
 	TEntryArray *EntryArray;
 
-	if ((RetVal = Dir.Open(a_pccPath)) == KErrNone)
+	if ((RetVal = Dir.open(a_pccPath)) == KErrNone)
 	{
-		if ((RetVal = Dir.Read(EntryArray)) == KErrNone)
+		if ((RetVal = Dir.read(EntryArray)) == KErrNone)
 		{
 			NextEntry = NULL;
-			Entry = EntryArray->GetHead();
+			Entry = EntryArray->getHead();
 
 			while (Entry)
 			{
@@ -1174,7 +1174,7 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 					}
 					else
 					{
-						if ((RetVal = DeleteFile(NextEntry)) != KErrNone)
+						if ((RetVal = deleteFile(NextEntry)) != KErrNone)
 						{
 							Utils::Error("Unable to delete file \"%s\" (Error %d)", NextEntry, RetVal);
 
@@ -1197,7 +1197,7 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 					break;
 				}
 
-				Entry = EntryArray->GetSucc(Entry);
+				Entry = EntryArray->getSucc(Entry);
 			}
 
 			delete [] NextEntry;
@@ -1212,7 +1212,7 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 			}
 		}
 
-		Dir.Close();
+		Dir.close();
 
 		/* The files and subdirectories in the directory have been deleted, so now */
 		/* delete the directory itself */
@@ -1292,7 +1292,7 @@ char *RScanner::QualifyFileName(const char *a_pccDirectoryName, const char *a_pc
 	if ((RetVal = new char[FileNameLength]) != NULL)
 	{
 		strcpy(RetVal, a_pccDirectoryName);
-		Utils::AddPart(RetVal, a_pccFileName, FileNameLength);
+		Utils::addPart(RetVal, a_pccFileName, FileNameLength);
 	}
 
 	return(RetVal);
@@ -1318,14 +1318,14 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 	CopyDir = true;
 	RetVal = KErrNone;
 
-	/* Get the name of the last directory or file in the path.  The Utils::FilePart() function can be */
+	/* Get the name of the last directory or file in the path.  The Utils::filePart() function can be */
 	/* used for this as it doesn't know the difference */
 
-	DirectoryName = Utils::FilePart(a_pcSource);
+	DirectoryName = Utils::filePart(a_pcSource);
 
 	/* Iterate through the list of directory filters and see if there is a match for the source directory */
 
-	if ((Filter = m_oDirectories.GetHead()) != NULL)
+	if ((Filter = m_oDirectories.getHead()) != NULL)
 	{
 		do
 		{
@@ -1333,14 +1333,14 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 			RWildcard Wildcard;
 
-			if (Wildcard.Open(Filter->m_pccName) == KErrNone)
+			if (Wildcard.open(Filter->m_pccName) == KErrNone)
 			{
 				/* If the directory matches the directory filter then we want to bail out and not copy */
 				/* the directory, unless the filter also contains an inclusion filter */
 
 				if (Wildcard.Match(DirectoryName))
 				{
-					if (Filter->m_oFilters.GetHead() == NULL)
+					if (Filter->m_oFilters.getHead() == NULL)
 					{
 						if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
 
@@ -1356,10 +1356,10 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 					break;
 				}
 
-				Wildcard.Close();
+				Wildcard.close();
 			}
 		}
-		while ((Filter = m_oDirectories.GetSucc(Filter)) != NULL);
+		while ((Filter = m_oDirectories.getSucc(Filter)) != NULL);
 	}
 
 	/* Now iterate through the list of path filters and see if there is a match for the source directory. */
@@ -1367,7 +1367,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 	if (!(Filter))
 	{
-		if ((Filter = m_oPaths.GetHead()) != NULL)
+		if ((Filter = m_oPaths.getHead()) != NULL)
 		{
 			do
 			{
@@ -1375,14 +1375,14 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 				RWildcard Wildcard;
 
-				if (Wildcard.Open(Filter->m_pccName) == KErrNone)
+				if (Wildcard.open(Filter->m_pccName) == KErrNone)
 				{
 					/* If the directory matches the directory filter then we want to bail out and not copy */
 					/* the directory, unless the filter also contains an inclusion filter */
 
 					if (Wildcard.Match(a_pcSource))
 					{
-						if (Filter->m_oFilters.GetHead() == NULL)
+						if (Filter->m_oFilters.getHead() == NULL)
 						{
 							if (g_oArgs[ARGS_VERBOSE]) printf("Excluding %s\n", a_pcSource);
 
@@ -1398,10 +1398,10 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 						break;
 					}
 
-					Wildcard.Close();
+					Wildcard.close();
 				}
 			}
-			while ((Filter = m_oPaths.GetSucc(Filter)) != NULL);
+			while ((Filter = m_oPaths.getSucc(Filter)) != NULL);
 		}
 	}
 
@@ -1409,16 +1409,16 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 	if (CopyDir)
 	{
-		if ((RetVal = SourceDir.Open(a_pcSource)) == KErrNone)
+		if ((RetVal = SourceDir.open(a_pcSource)) == KErrNone)
 		{
-			if ((RetVal = SourceDir.Read(SourceEntries)) == KErrNone)
+			if ((RetVal = SourceDir.read(SourceEntries)) == KErrNone)
 			{
-				if ((RetVal = DestDir.Open(a_pcDest)) == KErrNone)
+				if ((RetVal = DestDir.open(a_pcDest)) == KErrNone)
 				{
-					if ((RetVal = DestDir.Read(DestEntries)) == KErrNone)
+					if ((RetVal = DestDir.read(DestEntries)) == KErrNone)
 					{
 						NextSource = NextDest = NULL;
-						Entry = SourceEntries->GetHead();
+						Entry = SourceEntries->getHead();
 
 						while (Entry)
 						{
@@ -1450,7 +1450,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 										if (InclusionsOnly)
 										{
-											if ((Inclusion = Filter->m_oFilters.GetHead()) != NULL)
+											if ((Inclusion = Filter->m_oFilters.getHead()) != NULL)
 											{
 												do
 												{
@@ -1458,7 +1458,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 
 													RWildcard Wildcard;
 
-													if (Wildcard.Open(Inclusion->m_pccName) == KErrNone)
+													if (Wildcard.open(Inclusion->m_pccName) == KErrNone)
 													{
 														if (Wildcard.Match(Entry->iName))
 														{
@@ -1470,10 +1470,10 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 															break;
 														}
 
-														Wildcard.Close();
+														Wildcard.close();
 													}
 												}
-												while ((Inclusion = Filter->m_oFilters.GetSucc(Inclusion)) != NULL);
+												while ((Inclusion = Filter->m_oFilters.getSucc(Inclusion)) != NULL);
 											}
 										}
 
@@ -1518,7 +1518,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 								}
 							}
 
-							Entry = SourceEntries->GetSucc(Entry);
+							Entry = SourceEntries->getSucc(Entry);
 						}
 
 						delete [] NextDest;
@@ -1528,7 +1528,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 						{
 							if (DestEntries->Count() > 0)
 							{
-								Entry = DestEntries->GetHead();
+								Entry = DestEntries->getHead();
 
 								while (Entry)
 								{
@@ -1556,7 +1556,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 											{
 												printf("Deleting file \"%s\"\n", NextDest);
 
-												if ((RetVal = DeleteFile(NextDest)) != KErrNone)
+												if ((RetVal = deleteFile(NextDest)) != KErrNone)
 												{
 													Utils::Error("Unable to delete file \"%s\" (Error %d)", NextDest, RetVal);
 
@@ -1582,7 +1582,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 										Utils::Error("Out of memory");
 									}
 
-									Entry = DestEntries->GetSucc(Entry);
+									Entry = DestEntries->getSucc(Entry);
 								}
 
 								delete [] NextDest;
@@ -1594,7 +1594,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 						Utils::Error("Unable to scan dest directory \"%s\" (Error %d)", a_pcDest, RetVal);
 					}
 
-					DestDir.Close();
+					DestDir.close();
 				}
 				else
 				{
@@ -1634,7 +1634,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 				Utils::Error("Unable to scan source directory \"%s\" (Error %d)", a_pcSource, RetVal);
 			}
 
-			SourceDir.Close();
+			SourceDir.close();
 		}
 		else
 		{

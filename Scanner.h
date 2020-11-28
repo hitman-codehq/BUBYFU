@@ -54,7 +54,7 @@ public:
 
 		/* Iterate through the items in the directory filter list and delete them */
 
-		while ((Filter = m_oFilters.RemHead()) != NULL)
+		while ((Filter = m_oFilters.remHead()) != NULL)
 		{
 			delete Filter;
 		}
@@ -101,7 +101,7 @@ private:
 
 	int CreateDirectoryTree(char *a_pcPath);
 
-	int DeleteFile(const char *a_pccFileName);
+	int deleteFile(const char *a_pccFileName);
 
 	int	DeleteDir(const char *a_pccPath);
 
@@ -115,9 +115,9 @@ public:
 		m_poLastFilter= NULL;
 	}
 
-	int Open();
+	int open();
 
-	void Close();
+	void close();
 
 	char *QualifyFileName(const char *a_pccDirectoryName, const char *a_pccFileName);
 

@@ -60,12 +60,12 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 
 	/* Parse the command line parameters passed in and make sure they are formatted correctly */
 
-	if ((Result = g_oArgs.Open(g_accTemplate, ARGS_NUM_ARGS, a_ppcArgV, a_iArgC)) == KErrNone)
+	if ((Result = g_oArgs.open(g_accTemplate, ARGS_NUM_ARGS, a_ppcArgV, a_iArgC)) == KErrNone)
 	{
 		/* Open the scanner and allow it to parse the filter list if it exists.  It will display */
 		/* any errors required */
 
-		if (Scanner.Open() == KErrNone)
+		if (Scanner.open() == KErrNone)
 		{
 			/* RScanner::Scan() is able to modify the parameters passed in so make a copy of the */
 			/* source and destination paths before proceeding */
@@ -107,10 +107,10 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 			delete Dest;
 			delete Source;
 
-			Scanner.Close();
+			Scanner.close();
 		}
 
-		g_oArgs.Close();
+		g_oArgs.close();
 	}
 	else
 	{
