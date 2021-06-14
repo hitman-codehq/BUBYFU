@@ -747,7 +747,7 @@ int RScanner::CopyLink(const char *a_pccSource, const char *a_pccDest, const TEn
 
 		/* And finally after much work, create the link to the destination file */
 
-		printf("  %s => %s\n", a_pccDest, LinkTarget.c_str());
+		printf("  %s -> %s\n", a_pccDest, LinkTarget.c_str());
 		RetVal = Utils::makeLink(a_pccDest, LinkTarget.c_str());
 
 		if (RetVal == KErrNone)
@@ -830,7 +830,7 @@ int RScanner::CompareDirectories(char *a_pcSource, char *a_pcDest, const TEntry 
 int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const TEntry &a_roEntry, TEntryArray &a_roDestEntries)
 {
 	bool CRCOk, Match, ModifiedOk;
-	int SourceSeconds, DestSeconds, RetVal;
+	int SourceMilliSeconds, DestMilliSeconds, RetVal;
 	TUint SourceCRC, DestCRC;
 	const TEntry *DestEntry;
 
@@ -869,24 +869,27 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 			else
 			{
 				/* Do a special check of the modification time and date. Some file systems (such as ext2 over */
-				/* Samba) are not particularly accurate and their timestamps can be a second out. This is an */
-				/* unfortunately empirical hack but it's required for backing up from AmigaOS SFS => ext2 */
+				/* Samba) are not particularly accurate and their timestamps can be up to a second out, due to */
+				/* the file's milliseconds value not being tracked. This is an unfortunately empirical hack but */
+				/* it's required for backing up from Amiga OS SFS -> ext2 and NTFS -> ext2 */
 
 				ModifiedOk = (a_roEntry.iModified == DestEntry->iModified) ? ETrue : EFalse;
 
 				if (!(ModifiedOk))
 				{
-					/* Convert the source and destination times to seconds */
+					/* Convert the source and destination times to milliseconds */
 
-					SourceSeconds = ((((a_roEntry.iModified.DateTime().Hour() * 60) + a_roEntry.iModified.DateTime().Minute()) * 60) +
-						a_roEntry.iModified.DateTime().Second());
+					SourceMilliSeconds = ((((a_roEntry.iModified.DateTime().Hour() * 60) +
+						a_roEntry.iModified.DateTime().Minute()) * 60) + a_roEntry.iModified.DateTime().Second());
+					SourceMilliSeconds = ((SourceMilliSeconds * 1000) + a_roEntry.iModified.DateTime().MilliSecond());
 
-					DestSeconds = ((((DestEntry->iModified.DateTime().Hour() * 60) + DestEntry->iModified.DateTime().Minute()) * 60) +
-						DestEntry->iModified.DateTime().Second());
+					DestMilliSeconds = ((((DestEntry->iModified.DateTime().Hour() * 60) +
+						DestEntry->iModified.DateTime().Minute()) * 60) + DestEntry->iModified.DateTime().Second());
+					DestMilliSeconds = ((DestMilliSeconds * 1000) + DestEntry->iModified.DateTime().MilliSecond());
 
-					/* And ensure that they are no more than 1 second different */
+					/* And ensure that there is no more than 1 second difference */
 
-					if (abs(DestSeconds - SourceSeconds) == 1)
+					if (abs(DestMilliSeconds - SourceMilliSeconds) < 1000)
 					{
 						ModifiedOk = true;
 					}
