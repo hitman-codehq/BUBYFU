@@ -531,7 +531,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 						if ((RetVal = Utils::setProtection(a_pccSource, Entry.iAttributes)) != KErrNone)
 						{
-							Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccSource, RetVal);
+							Utils::Error("Unable to set protection bits for file \"%s\" (Error %d)", a_pccSource, RetVal);
 						}
 					}
 
@@ -540,12 +540,12 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 				}
 				else
 				{
-					Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
+					Utils::Error("Unable to set protection bits for file \"%s\" (Error %d)", a_pccDest, RetVal);
 				}
 			}
 			else
 			{
-				Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
+				Utils::Error("Unable to set datestamp for file \"%s\" (Error %d)", a_pccDest, RetVal);
 			}
 		}
 	}
@@ -624,7 +624,7 @@ int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
 				{
 					if ((RetVal = Utils::setFileDate(a_pcDest, Entry)) != KErrNone)
 					{
-						Utils::Error("Unable to set file information for directory \"%s\" (Error = %d)", a_pcDest, RetVal);
+						Utils::Error("Unable to set datestamp for directory \"%s\" (Error = %d)", a_pcDest, RetVal);
 					}
 				}
 				else
@@ -965,7 +965,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 									if ((RetVal = Utils::setFileDate(a_pccDest, a_roEntry)) != KErrNone)
 									{
-										Utils::Error("Unable to set datestamp on file \"%s\" (Error %d)", a_pccDest, RetVal);
+										Utils::Error("Unable to set datestamp for file \"%s\" (Error %d)", a_pccDest, RetVal);
 									}
 								}
 								else
@@ -987,7 +987,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 									if ((RetVal = Utils::setProtection(a_pccDest, a_roEntry.iAttributes)) != KErrNone)
 									{
-										Utils::Error("Unable to set protection bits on file \"%s\" (Error %d)", a_pccDest, RetVal);
+										Utils::Error("Unable to set protection bits for file \"%s\" (Error %d)", a_pccDest, RetVal);
 									}
 								}
 								else
