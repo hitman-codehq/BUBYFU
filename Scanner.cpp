@@ -156,7 +156,8 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 {
 	char *Path;
 	const char *FileName;
-	int Index, Length, NumSlashes, RetVal;
+	int Index, NumSlashes, RetVal;
+	size_t Length;
 	TFilter *Filter;
 
 	/* Assume failure */
@@ -1055,7 +1056,8 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 int RScanner::CreateDirectoryTree(char *a_pcPath)
 {
 	char *Dir, *StartPath, *EndPath;
-	int Length, RetVal;
+	int RetVal;
+	size_t Length;
 
 	/* Assume success */
 
@@ -1288,7 +1290,7 @@ char *RScanner::ExtractDirectory(char *a_pcPath)
 char *RScanner::QualifyFileName(const char *a_pccDirectoryName, const char *a_pccFileName)
 {
 	char *RetVal;
-	int FileNameLength;
+	size_t FileNameLength;
 
 	FileNameLength = (strlen(a_pccDirectoryName) + strlen(a_pccFileName) + 2);
 
