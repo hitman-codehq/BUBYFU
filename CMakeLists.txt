@@ -1,12 +1,13 @@
 
-cmake_minimum_required(VERSION 3.7.1)
+cmake_minimum_required(VERSION 3.18)
 
 project(BUBYFU)
 
 if(MSVC)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	add_compile_options(/EHsc /W4)
 else()
-	add_compile_options(-fno-asynchronous-unwind-tables -fno-strict-aliasing -Wall -Wextra -Wwrite-strings)
+	add_compile_options(-fno-asynchronous-unwind-tables -Wall -Wextra)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
