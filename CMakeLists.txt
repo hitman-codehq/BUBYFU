@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.16)
 
 project(BUBYFU)
 
@@ -7,7 +7,7 @@ if(MSVC)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 	add_compile_options(/EHsc /W4)
 else()
-	add_compile_options(-fno-asynchronous-unwind-tables -Wall -Wextra)
+	add_compile_options(-fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wextra)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -17,7 +17,8 @@ endif()
 set(sourceFiles "BUBYFU.cpp")
 set(sourceFiles ${sourceFiles} "Scanner.cpp")
 
-find_package(Qt5 COMPONENTS Core Widgets)
+find_library(StdFuncs StdFuncs PATHS ../StdFuncs PATH_SUFFIXES build)
+find_package(Qt5 COMPONENTS Core Gui Widgets)
 
 if(${Qt5_FOUND} EQUAL 1)
 	message(STATUS "Configuring using Qt5 directory ${Qt5_DIR}")
@@ -28,14 +29,17 @@ if(${Qt5_FOUND} EQUAL 1)
 
 	add_executable(BUBYFU ${sourceFiles})
 	add_compile_definitions(QT_GUI_LIB)
-	target_link_libraries(BUBYFU Qt5::Core Qt5::Widgets)
+	target_link_libraries(BUBYFU ${StdFuncs})
+	target_link_libraries(BUBYFU Qt5::Core Qt5::Gui Qt5::Widgets)
 else()
 	message(STATUS "Qt5 not found, configuring basic build")
 
 	add_executable(BUBYFU ${sourceFiles})
+	target_link_libraries(BUBYFU ${StdFuncs})
 endif()
 
 set_property(TARGET BUBYFU PROPERTY CXX_STANDARD 14)
+set_property(TARGET BUBYFU PROPERTY CXX_STANDARD_REQUIRED ON)
 
 if(MSVC)
 	set(CMAKE_EXE_LINKER_FLAGS "/SUBSYSTEM:CONSOLE")
@@ -43,9 +47,6 @@ if(MSVC)
 endif()
 
 target_include_directories(BUBYFU PRIVATE "../StdFuncs")
-
-find_library(StdFuncs StdFuncs PATHS ../StdFuncs PATH_SUFFIXES build)
-target_link_libraries(BUBYFU ${StdFuncs})
 
 if(USE_CLANG_TIDY)
 	find_program(ClangTidy NAMES "clang-tidy")

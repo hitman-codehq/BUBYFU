@@ -1,14 +1,27 @@
 
-CC = @g++
-LD = @g++
-CFLAGS = -c -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wextra -Wwrite-strings -DMUNGWALL_NO_LINE_TRACKING
+CFLAGS = -c -std=gnu++14 -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wextra
 IFLAGS = -I../StdFuncs
-LFLAGS = -fno-asynchronous-unwind-tables -fno-exceptions
+LFLAGS = -L../StdFuncs/$(OBJ)
 LIBS = -lStdFuncs
+
+ifdef PREFIX
+	AR = @$(PREFIX)ar
+	CC = @$(PREFIX)g++
+	LD = @$(PREFIX)g++
+	STRIP = @$(PREFIX)strip
+
+	LIBS += -lauto
+	STRIP_FLAGS = -R.comment
+else
+	AR = @ar
+	CC = @g++
+	LD = @g++
+	STRIP = @strip
+endif
 
 ifdef DEBUG
 	OBJ = Debug
-	CFLAGS += -ggdb -D_DEBUG
+	CFLAGS += -ggdb -D_DEBUG -DMUNGWALL_NO_LINE_TRACKING
 else
 	OBJ = Release
 	CFLAGS += -O2
@@ -16,27 +29,29 @@ endif
 
 UNAME = $(shell uname)
 
-ifeq ($(UNAME), AmigaOS)
-
-LIBS += -lauto
-
+ifdef PREFIX
+	ifeq ($(UNAME), CYGWIN_NT-10.0)
+		CFLAGS += -athread=native
+		LFLAGS += -athread=native
+		OBJ := $(OBJ)_OS4
+	else
+		LFLAGS += -mcrt=clib2
+	endif
 endif
-
-LFLAGS += -L../StdFuncs/$(OBJ)
 
 EXECUTABLE = $(OBJ)/BUBYFU
 
 OBJECTS = $(OBJ)/BUBYFU.o $(OBJ)/Scanner.o
 
-All: $(OBJ) $(EXECUTABLE)
+all: $(OBJ) $(EXECUTABLE)
 
 $(OBJ):
 	@mkdir $(OBJ)
 
 $(EXECUTABLE): $(OBJECTS) ../StdFuncs/$(OBJ)/libStdFuncs.a
 	@echo Linking $@...
-	$(LD) $(OBJECTS) $(LFLAGS) $(LIBS) -o $@.debug
-	@strip -R.comment $@.debug -o $@
+	$(LD) $(LFLAGS) $(OBJECTS) $(LIBS) -o $@.debug
+	$(STRIP) $(STRIP_FLAGS) $@.debug -o $@
 
 $(OBJ)/%.o: %.cpp
 	@echo Compiling $<...
