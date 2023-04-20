@@ -50,7 +50,8 @@ static void SignalHandler(int /*a_iSignal*/)
 int main(int a_iArgC, const char *a_ppcArgV[])
 {
 	char *Source, *Dest;
-	TInt Length, Result;
+	size_t Length;
+	TInt Result;
 	RScanner Scanner;
 
 	/* Install a ctrl-c handler so we can handle ctrl-c being pressed and shut down the scan */

@@ -1,9 +1,9 @@
 
 #include <StdFuncs.h>
 #include <Args.h>
-#include <BaUtils.h>
 #include <Dir.h>
 #include <File.h>
+#include <FileUtils.h>
 #include <StdTextFile.h>
 #include <StdWildcard.h>
 #include <stdio.h>
@@ -215,7 +215,7 @@ int RScanner::AddFilter(char *a_pcLine, bool a_bInclusion)
 			{
 				if (!(a_bInclusion))
 				{
-					for (Index = 0; Index < Length; ++Index)
+					for (Index = 0; Index < (int) Length; ++Index)
 					{
 						if (a_pcLine[Index] == '/')
 						{
@@ -458,7 +458,7 @@ int RScanner::CopyFile(const char *a_pccSource, const char *a_pccDest, const TEn
 
 		if (RetVal == KErrNone)
 		{
-			if ((RetVal = DestFile.Create(a_pccDest, EFileWrite)) == KErrNone)
+			if ((RetVal = DestFile.create(a_pccDest, EFileWrite)) == KErrNone)
 			{
 				if ((Buffer = new unsigned char[BUFFER_SIZE]) != NULL)
 				{
@@ -598,7 +598,6 @@ int RScanner::CopyFileOrLink(const char *a_pccSource, const char *a_pccDest, con
 int RScanner::CopyDirectory(char *a_pcSource, char *a_pcDest)
 {
 	int RetVal;
-	TEntry Entry;
 
 	printf("Copying directory \"%s\" to \"%s\"\n", a_pcSource, a_pcDest);
 
@@ -1122,17 +1121,18 @@ int RScanner::CreateDirectoryTree(char *a_pcPath)
 int	RScanner::deleteFile(const char *a_pccFileName)
 {
 	int RetVal;
+	RFileUtils FileUtils;
 
 	/* Try to delete the file */
 
-	if ((RetVal = BaflUtils::deleteFile(a_pccFileName)) != KErrNone)
+	if ((RetVal = FileUtils.deleteFile(a_pccFileName)) != KErrNone)
 	{
 		/* Deleting the file failed.  This may be because it is protected from deletion, so try */
 		/* making it deleteable and try again */
 
 		if ((RetVal = Utils::SetDeleteable(a_pccFileName)) == KErrNone)
 		{
-			RetVal = BaflUtils::deleteFile(a_pccFileName);
+			RetVal = FileUtils.deleteFile(a_pccFileName);
 		}
 	}
 
