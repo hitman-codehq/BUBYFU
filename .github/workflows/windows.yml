@@ -1,0 +1,47 @@
+name: Windows
+
+on:
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Checkout StdFuncs
+        uses: actions/checkout@v3
+        with:
+          repository: hitman-codehq/StdFuncs
+          path: StdFuncs
+      - name: Download Libraries
+        run: |
+          mv StdFuncs ..
+          gh run download --repo hitman-codehq/StdFuncs --name Windows-Libraries --dir ../StdFuncs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          vs-version: '16.0'
+      - name: Build
+        run: |
+          msbuild /p:Configuration=Release /p:Platform=x86
+          msbuild /p:Configuration=Release /p:Platform=x64
+      - name: Build Debug
+        run: |
+          msbuild /p:Configuration=Debug /p:Platform=x86
+          msbuild /p:Configuration=Debug /p:Platform=x64
+      - name: Archive Executables
+        uses: actions/upload-artifact@v3
+        with:
+          name: Windows-Executables
+          path: |
+            Win32/Debug/*.exe
+            x64/Debug/*.exe
+            Win32/Release/*.exe
+            x64/Release/*.exe
