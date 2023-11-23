@@ -951,7 +951,20 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 							if (a_roEntry.iSize != DestEntry->iSize)
 							{
-								printf("size = %d -vs- %d\n", a_roEntry.iSize, DestEntry->iSize);
+
+								/* Amiga OS has no support for the %lld format specifier, so we have no choice but to just */
+								/* cast the 64 bit value to an integer and hope for the best */
+
+#ifdef __amigaos__
+
+								printf("size = %d -vs- %d\n", (int) a_roEntry.iSize, (int) DestEntry->iSize);
+
+#else /* ! __amigaos__ */
+
+								printf("size = %lld -vs- %lld\n", a_roEntry.iSize, DestEntry->iSize);
+
+#endif /* ! __amigaos__ */
+
 							}
 							else if (!(ModifiedOk))
 							{
