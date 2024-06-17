@@ -968,7 +968,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 							}
 							else if (!(ModifiedOk))
 							{
-								char SourceDate[20], SourceTime[20], DestDate[20], DestTime[20];
+								std::string SourceDate, SourceTime, DestDate, DestTime;
 
 								Utils::TimeToString(SourceDate, SourceTime, a_roEntry);
 								Utils::TimeToString(DestDate, DestTime, *DestEntry);
@@ -977,7 +977,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 
 								if (g_oArgs[ARGS_FIXDATES])
 								{
-									printf("%s %s -> %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+									printf("%s %s -> %s %s\n", SourceDate.c_str(), SourceTime.c_str(), DestDate.c_str(), DestTime.c_str());
 
 									if ((RetVal = Utils::setFileDate(a_pccDest, a_roEntry)) != KErrNone)
 									{
@@ -986,7 +986,7 @@ int RScanner::CompareFiles(const char *a_pccSource, const char *a_pccDest, const
 								}
 								else
 								{
-									printf("%s %s -vs- %s %s\n", SourceDate, SourceTime, DestDate, DestTime);
+									printf("%s %s -vs- %s %s\n", SourceDate.c_str(), SourceTime.c_str(), DestDate.c_str(), DestTime.c_str());
 								}
 							}
 							else if (!(CRCOk))
