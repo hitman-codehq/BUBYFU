@@ -1172,9 +1172,10 @@ int	RScanner::DeleteDir(const char *a_pccPath)
 
 	if ((RetVal = Dir.open(a_pccPath)) == KErrNone)
 	{
-		if ((RetVal = Dir.read(EntryArray)) == KErrNone)
+		if ((RetVal = Dir.read()) == KErrNone)
 		{
 			NextEntry = NULL;
+			EntryArray = Dir.getEntries();
 			Entry = EntryArray->getHead();
 
 			while (Entry)
@@ -1429,12 +1430,15 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 	{
 		if ((RetVal = SourceDir.open(a_pcSource)) == KErrNone)
 		{
-			if ((RetVal = SourceDir.read(SourceEntries)) == KErrNone)
+			if ((RetVal = SourceDir.read()) == KErrNone)
 			{
+				SourceEntries = SourceDir.getEntries();
+
 				if ((RetVal = DestDir.open(a_pcDest)) == KErrNone)
 				{
-					if ((RetVal = DestDir.read(DestEntries)) == KErrNone)
+					if ((RetVal = DestDir.read()) == KErrNone)
 					{
+						DestEntries = DestDir.getEntries();
 						NextSource = NextDest = NULL;
 						Entry = SourceEntries->getHead();
 
