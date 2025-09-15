@@ -47,7 +47,7 @@ static void SignalHandler(int /*a_iSignal*/)
 	g_bBreak = true;
 }
 
-int main(int a_iArgC, const char *a_ppcArgV[])
+int main(int a_iArgC, char *a_ppcArgV[])
 {
 	char *Source, *Dest;
 	size_t Length;
@@ -61,7 +61,7 @@ int main(int a_iArgC, const char *a_ppcArgV[])
 
 	/* Parse the command line parameters passed in and make sure they are formatted correctly */
 
-	if ((Result = g_oArgs.open(g_accTemplate, ARGS_NUM_ARGS, a_ppcArgV, a_iArgC)) == KErrNone)
+	if ((Result = g_oArgs.open(g_accTemplate, ARGS_NUM_ARGS, a_iArgC, a_ppcArgV)) == KErrNone)
 	{
 		/* Open the scanner and allow it to parse the filter list if it exists.  It will display */
 		/* any errors required */
