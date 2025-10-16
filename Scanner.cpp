@@ -13,7 +13,6 @@
 
 using namespace std;
 
-extern volatile bool g_bBreak;	/* Set to true if when ctrl-c is hit by the user */
 extern RArgs g_oArgs;			/* Contains the parsed command line arguments */
 
 /* # of bytes to read and write when copying files */
@@ -1519,7 +1518,7 @@ int RScanner::Scan(char *a_pcSource, char *a_pcDest)
 								delete [] NextSource;
 								NextSource = NULL;
 
-								if (g_bBreak)
+								if (g_break)
 								{
 									/* Because Scan() is recursive, this error can be printed multiple times if we are in a subdirectory */
 									/* (once for each recurse of Scan()) so use a flag to ensure that it is only printed once */

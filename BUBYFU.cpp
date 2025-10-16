@@ -1,7 +1,6 @@
 
 #include <StdFuncs.h>
 #include <Args.h>
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include "Scanner.h"
@@ -35,17 +34,7 @@ static const char __attribute__((used)) g_accStackCookie[] = "$STACK:262144";
 
 static const char g_accTemplate[] = "SOURCE/A,DEST/A,FILTERLIST,ARCHIVE/S,COPY/S,CRC/S,DELETE/S,DELETEDIRS/S,FIXDATES/S,FIXPROTECT/S,NOCASE/S,NODATES/S,NODEST/S,NOERRORS/S,NOHIDDEN/S,NOPROTECT/S,NORECURSE/S,VERBOSE/S";
 
-volatile bool g_bBreak;		/* Set to true if when ctrl-c is hit by the user */
 RArgs g_oArgs;				/* Contains the parsed command line arguments */
-
-/* Written: Friday 02-Jan-2009 10:30 am */
-
-static void SignalHandler(int /*a_iSignal*/)
-{
-	/* Signal that ctrl-c has been pressed so that we break out of the scanning routine */
-
-	g_bBreak = true;
-}
 
 int main(int a_iArgC, char *a_ppcArgV[])
 {
@@ -57,7 +46,7 @@ int main(int a_iArgC, char *a_ppcArgV[])
 	/* Install a ctrl-c handler so we can handle ctrl-c being pressed and shut down the scan */
 	/* properly */
 
-	signal(SIGINT, SignalHandler);
+	Utils::setSignal();
 
 	/* Parse the command line parameters passed in and make sure they are formatted correctly */
 
